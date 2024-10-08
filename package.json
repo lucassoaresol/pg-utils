@@ -1,0 +1,47 @@
+{
+  "name": "pg-utils",
+  "version": "1.0.0",
+  "description": "A PostgreSQL utilities library for Node.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsup src --dts",
+    "lint": "eslint src/**/*.ts --fix",
+    "start": "node dist/index.js",
+    "cli": "node dist/cli.js"
+  },
+  "bin": {
+    "pg-utils": "dist/cli.js"
+  },
+  "dependencies": {
+    "commander": "12.1.0",
+    "pg": "8.13.0"
+  },
+  "devDependencies": {
+    "@types/pg": "8.11.10",
+    "@typescript-eslint/eslint-plugin": "8.6.0",
+    "@typescript-eslint/parser": "8.6.0",
+    "eslint": "8.57.0",
+    "eslint-config-prettier": "9.1.0",
+    "eslint-import-resolver-typescript": "3.6.3",
+    "eslint-plugin-import": "2.30.0",
+    "eslint-plugin-prettier": "5.2.1",
+    "tsup": "8.3.0",
+    "tsx": "4.19.1",
+    "typescript": "5.2.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lucassoaresol/pg-utils.git"
+  },
+  "keywords": [
+    "postgresql",
+    "pg",
+    "database",
+    "migrations",
+    "nodejs",
+    "typescript"
+  ],
+  "author": "Lucas Soares",
+  "license": "MIT"
+}
