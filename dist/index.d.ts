@@ -1,20 +1,15 @@
-import Database from './Database.js';
+import PgUtils from './pgUtils.js';
+import './Database.js';
 
-declare class PgUtils {
-    private user;
-    private host;
-    private password;
-    private port;
-    private database;
-    private migrationsPath;
-    private dbInstance;
-    private migrations;
-    constructor(user: string, host: string, password: string, port: number, database: string, migrationsPath: string);
-    createAndConnectDatabase(): Promise<void>;
-    getClientDatabase(): Database;
-    revertLastMigration(): Promise<void>;
-    applyAllMigrations(): Promise<void>;
-    applyMigrationByName(name: string, direction: 'up' | 'down'): Promise<void>;
+declare class ClientsManager {
+    private static instance;
+    private clientsMap;
+    private configFilePath;
+    private constructor();
+    static getInstance(): Promise<ClientsManager>;
+    private loadClientsConfig;
+    getClientById(id: string): PgUtils | undefined;
+    getAllClients(): Map<string, PgUtils>;
 }
 
-export { PgUtils as default };
+export { ClientsManager as default };

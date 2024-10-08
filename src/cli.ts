@@ -6,40 +6,15 @@ import { resolve } from 'node:path';
 import { Command } from 'commander';
 
 import MigrationCreate from './migrationCreate';
+import PgUtils from './pgUtils';
 
-import PgUtils from '.';
+import ClientsManager from '.';
 
 const program = new Command();
 
 const migrationsDir = resolve('migrations');
 const configFilePath = resolve('pg-utils.json');
 const gitignorePath = resolve('.gitignore');
-
-async function loadClientsConfig(): Promise<Map<string, PgUtils>> {
-  try {
-    const configFileContent = await readFile(configFilePath, 'utf-8');
-    const config = JSON.parse(configFileContent);
-
-    const clientsMap = new Map<string, PgUtils>();
-
-    config.forEach((client: any) => {
-      const pgUtilsInstance = new PgUtils(
-        client.user,
-        client.host,
-        client.password,
-        client.port,
-        client.database,
-        client.migrationsDir,
-      );
-      clientsMap.set(client.id, pgUtilsInstance);
-    });
-
-    return clientsMap;
-  } catch (error: any) {
-    console.error('Erro ao carregar as configurações dos clientes:', error.message);
-    throw error;
-  }
-}
 
 async function handleMigration(dbClient: PgUtils, options: any) {
   try {
@@ -188,10 +163,10 @@ program
   .option('-i, --id <id>', 'ID do cliente')
   .action(async (options) => {
     try {
-      const clients = await loadClientsConfig();
+      const clientsManager = await ClientsManager.getInstance();
 
       if (options.id) {
-        const dbClient = clients.get(options.id);
+        const dbClient = clientsManager.getClientById(options.id);
         if (dbClient) {
           try {
             await dbClient.createAndConnectDatabase();
@@ -208,7 +183,8 @@ program
           console.error(`Cliente com ID "${options.id}" não encontrado.`);
         }
       } else {
-        for (const [id, dbClient] of clients.entries()) {
+        const allClients = clientsManager.getAllClients();
+        for (const [id, dbClient] of allClients.entries()) {
           try {
             await dbClient.createAndConnectDatabase();
             console.log(
@@ -240,10 +216,10 @@ program
       await migrate.createMigrationFile(options.create);
       console.log(`Migração "${options.create}" criada com sucesso`);
     } else {
-      const clients = await loadClientsConfig();
+      const clientsManager = await ClientsManager.getInstance();
 
       if (options.id) {
-        const dbClient = clients.get(options.id);
+        const dbClient = clientsManager.getClientById(options.id);
 
         if (!dbClient) {
           console.error(`Cliente com ID "${options.id}" não encontrado.`);
@@ -252,7 +228,8 @@ program
 
         await handleMigration(dbClient, options);
       } else {
-        for (const [id, dbClient] of clients.entries()) {
+        const allClients = clientsManager.getAllClients();
+        for (const [id, dbClient] of allClients.entries()) {
           console.log(`Aplicando migrações para o cliente: ${id}`);
           await handleMigration(dbClient, options);
         }

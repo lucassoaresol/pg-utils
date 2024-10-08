@@ -1,55 +1,52 @@
-import Database from './Database';
-import MigrationManager from './migrationManager';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 
-class PgUtils {
-  private dbInstance: Database;
-  private migrations: MigrationManager;
+import PgUtils from './pgUtils';
 
-  constructor(
-    private user: string,
-    private host: string,
-    private password: string,
-    private port: number,
-    private database: string,
-    private migrationsPath: string,
-  ) {
-    this.dbInstance = new Database(
-      this.user,
-      this.host,
-      this.password,
-      this.port,
-      this.database,
-    );
-    this.migrations = new MigrationManager(this.migrationsPath, this.dbInstance);
+class ClientsManager {
+  private static instance: ClientsManager;
+  private clientsMap: Map<string, PgUtils> = new Map();
+  private configFilePath = resolve('pg-utils.json');
+
+  private constructor() {}
+
+  public static async getInstance(): Promise<ClientsManager> {
+    if (!ClientsManager.instance) {
+      ClientsManager.instance = new ClientsManager();
+      await ClientsManager.instance.loadClientsConfig();
+    }
+    return ClientsManager.instance;
   }
 
-  public async createAndConnectDatabase(): Promise<void> {
+  private async loadClientsConfig(): Promise<void> {
     try {
-      await this.dbInstance.createDatabase();
-      console.log(`Banco de dados "${this.database}" criado e pool inicializado.`);
-    } catch (err) {
-      console.error('Erro ao criar o banco de dados:', err);
+      const configFileContent = await readFile(this.configFilePath, 'utf-8');
+      const config = JSON.parse(configFileContent);
+
+      config.forEach((client: any) => {
+        const pgUtilsInstance = new PgUtils(
+          client.user,
+          client.host,
+          client.password,
+          client.port,
+          client.database,
+          client.migrationsDir,
+        );
+        this.clientsMap.set(client.id, pgUtilsInstance);
+      });
+    } catch (error: any) {
+      console.error('Erro ao carregar as configurações dos clientes:', error.message);
+      throw error;
     }
   }
 
-  public getClientDatabase(): Database {
-    return this.dbInstance;
+  public getClientById(id: string): PgUtils | undefined {
+    return this.clientsMap.get(id);
   }
 
-  public async revertLastMigration(): Promise<void> {
-    await this.migrations.initialize();
-    await this.migrations.revertLastMigration();
-  }
-
-  public async applyAllMigrations(): Promise<void> {
-    await this.migrations.initialize();
-    await this.migrations.applyAllMigrations();
-  }
-
-  public async applyMigrationByName(name: string, direction: 'up' | 'down') {
-    await this.migrations.initialize();
-    await this.migrations.applyMigrationByName(name, direction);
+  public getAllClients(): Map<string, PgUtils> {
+    return this.clientsMap;
   }
 }
 
-export default PgUtils;
+export default ClientsManager;

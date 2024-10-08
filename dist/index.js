@@ -33,6 +33,8 @@ __export(src_exports, {
   default: () => src_default
 });
 module.exports = __toCommonJS(src_exports);
+var import_promises2 = require("fs/promises");
+var import_node_path2 = require("path");
 
 // src/Database.ts
 var import_pg = __toESM(require("pg"));
@@ -308,7 +310,7 @@ var MigrationManager = class {
 };
 var migrationManager_default = MigrationManager;
 
-// src/index.ts
+// src/pgUtils.ts
 var PgUtils = class {
   constructor(user, host, password, port, database, migrationsPath) {
     this.user = user;
@@ -350,4 +352,46 @@ var PgUtils = class {
     await this.migrations.applyMigrationByName(name, direction);
   }
 };
-var src_default = PgUtils;
+var pgUtils_default = PgUtils;
+
+// src/index.ts
+var ClientsManager = class _ClientsManager {
+  constructor() {
+    this.clientsMap = /* @__PURE__ */ new Map();
+    this.configFilePath = (0, import_node_path2.resolve)("pg-utils.json");
+  }
+  static async getInstance() {
+    if (!_ClientsManager.instance) {
+      _ClientsManager.instance = new _ClientsManager();
+      await _ClientsManager.instance.loadClientsConfig();
+    }
+    return _ClientsManager.instance;
+  }
+  async loadClientsConfig() {
+    try {
+      const configFileContent = await (0, import_promises2.readFile)(this.configFilePath, "utf-8");
+      const config = JSON.parse(configFileContent);
+      config.forEach((client) => {
+        const pgUtilsInstance = new pgUtils_default(
+          client.user,
+          client.host,
+          client.password,
+          client.port,
+          client.database,
+          client.migrationsDir
+        );
+        this.clientsMap.set(client.id, pgUtilsInstance);
+      });
+    } catch (error) {
+      console.error("Erro ao carregar as configura\xE7\xF5es dos clientes:", error.message);
+      throw error;
+    }
+  }
+  getClientById(id) {
+    return this.clientsMap.get(id);
+  }
+  getAllClients() {
+    return this.clientsMap;
+  }
+};
+var src_default = ClientsManager;
