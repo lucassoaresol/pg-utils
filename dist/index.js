@@ -30,9 +30,12 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 // src/index.ts
 var src_exports = {};
 __export(src_exports, {
-  default: () => src_default
+  ClientsManager: () => clientsManager_default,
+  PgUtils: () => pgUtils_default
 });
 module.exports = __toCommonJS(src_exports);
+
+// src/clientsManager.ts
 var import_promises2 = require("fs/promises");
 var import_node_path2 = require("path");
 
@@ -354,7 +357,7 @@ var PgUtils = class {
 };
 var pgUtils_default = PgUtils;
 
-// src/index.ts
+// src/clientsManager.ts
 var ClientsManager = class _ClientsManager {
   constructor() {
     this.clientsMap = /* @__PURE__ */ new Map();
@@ -394,4 +397,9 @@ var ClientsManager = class _ClientsManager {
     return this.clientsMap;
   }
 };
-var src_default = ClientsManager;
+var clientsManager_default = ClientsManager;
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  ClientsManager,
+  PgUtils
+});

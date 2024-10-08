@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 "use strict";
 var __create = Object.create;
 var __defProp = Object.defineProperty;
@@ -6,6 +5,10 @@ var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
 var __copyProps = (to, from, except, desc) => {
   if (from && typeof from === "object" || typeof from === "function") {
     for (let key of __getOwnPropNames(from))
@@ -22,13 +25,14 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
   mod
 ));
-
-// src/cli.ts
-var import_promises4 = require("fs/promises");
-var import_node_path4 = require("path");
-var import_commander = require("commander");
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // src/clientsManager.ts
+var clientsManager_exports = {};
+__export(clientsManager_exports, {
+  default: () => clientsManager_default
+});
+module.exports = __toCommonJS(clientsManager_exports);
 var import_promises2 = require("fs/promises");
 var import_node_path2 = require("path");
 
@@ -391,214 +395,3 @@ var ClientsManager = class _ClientsManager {
   }
 };
 var clientsManager_default = ClientsManager;
-
-// src/migrationCreate.ts
-var import_promises3 = require("fs/promises");
-var import_node_path3 = require("path");
-var MigrationCreate = class {
-  constructor(migrationsPath) {
-    this.migrationsPath = migrationsPath;
-  }
-  async createMigrationFile(name) {
-    const timestamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[-:T.Z]/g, "");
-    const fileName = `${timestamp}_${name.replace(/\s+/g, "_")}.sql`;
-    const filePath = (0, import_node_path3.join)(this.migrationsPath, fileName);
-    const fileContent = `-- up
-
--- down
-`;
-    try {
-      await (0, import_promises3.writeFile)(filePath, fileContent);
-      console.log(`Migra\xE7\xE3o criada com sucesso: ${filePath}`);
-    } catch (err) {
-      console.error("Erro ao criar a migra\xE7\xE3o:", err);
-    }
-  }
-};
-var migrationCreate_default = MigrationCreate;
-
-// src/cli.ts
-var program = new import_commander.Command();
-var migrationsDir = (0, import_node_path4.resolve)("migrations");
-var configFilePath = (0, import_node_path4.resolve)("pg-utils.json");
-var gitignorePath = (0, import_node_path4.resolve)(".gitignore");
-async function handleMigration(dbClient, options) {
-  try {
-    if (options.down) {
-      if (typeof options.down === "string") {
-        console.log(
-          `Revertendo a migra\xE7\xE3o espec\xEDfica: "${options.down}" para o cliente ${dbClient}`
-        );
-        await dbClient.applyMigrationByName(options.down, "down");
-      } else {
-        console.log("Revertendo a \xFAltima migra\xE7\xE3o aplicada.");
-        await dbClient.revertLastMigration();
-      }
-    }
-    if (options.up) {
-      console.log(
-        `Aplicando a migra\xE7\xE3o espec\xEDfica: "${options.up}" para o cliente ${dbClient}`
-      );
-      await dbClient.applyMigrationByName(options.up, "up");
-    }
-    if (!options.create && !options.down && !options.up) {
-      console.log("Aplicando todas as migra\xE7\xF5es pendentes.");
-      await dbClient.applyAllMigrations();
-    }
-  } catch (err) {
-    console.error("Erro ao gerenciar as migra\xE7\xF5es:", err);
-  }
-}
-program.command("init").description(
-  "Inicializa o projeto criando o diret\xF3rio de migra\xE7\xF5es e o arquivo de configura\xE7\xE3o pg-utils.json, al\xE9m de adicionar o arquivo de configura\xE7\xE3o ao .gitignore."
-).action(async () => {
-  try {
-    await (0, import_promises4.mkdir)(migrationsDir, { recursive: true });
-    console.log(`Diret\xF3rio "${migrationsDir}" criado com sucesso.`);
-    const configContent = [
-      {
-        id: "development",
-        user: "dev_user",
-        host: "localhost",
-        password: "dev_password",
-        port: 5432,
-        database: "dev_database",
-        migrationsDir: "migrations"
-      },
-      {
-        id: "production",
-        user: "prod_user",
-        host: "prod-db.example.com",
-        password: "prod_password",
-        port: 5432,
-        database: "prod_database",
-        migrationsDir: "migrations"
-      }
-    ];
-    try {
-      await (0, import_promises4.access)(configFilePath);
-      console.log(`Arquivo "${configFilePath}" j\xE1 existe.`);
-    } catch {
-      await (0, import_promises4.writeFile)(
-        configFilePath,
-        JSON.stringify(configContent, null, 2),
-        "utf-8"
-      );
-      console.log(`Arquivo de configura\xE7\xE3o "${configFilePath}" criado com sucesso.`);
-    }
-    try {
-      await (0, import_promises4.access)(gitignorePath);
-      const gitignoreContent = await (0, import_promises4.readFile)(gitignorePath, "utf-8");
-      if (!gitignoreContent.includes("pg-utils.json")) {
-        await (0, import_promises4.appendFile)(gitignorePath, "pg-utils.json\n");
-        console.log(`Arquivo "${configFilePath}" adicionado ao .gitignore.`);
-      } else {
-        console.log(`"${configFilePath}" j\xE1 est\xE1 no .gitignore.`);
-      }
-    } catch {
-      await (0, import_promises4.writeFile)(gitignorePath, "pg-utils.json\n", "utf-8");
-      console.log(`Arquivo ".gitignore" criado com "${configFilePath}".`);
-    }
-  } catch (error) {
-    console.error("Erro ao inicializar o projeto:", error.message);
-  }
-});
-program.command("add").description("Adiciona um novo cliente ao arquivo de configura\xE7\xE3o pg-utils.json").requiredOption("-i, --id <id>", "ID do cliente").requiredOption("-u, --user <user>", "Usu\xE1rio do banco de dados").requiredOption("-h, --host <host>", "Host do banco de dados").requiredOption("-p, --password <password>", "Senha do banco de dados").requiredOption("-P, --port <port>", "Porta do banco de dados", "5432").requiredOption("-d, --database <database>", "Nome do banco de dados").action(async (options) => {
-  const newClientConfig = {
-    id: options.id,
-    user: options.user,
-    host: options.host,
-    password: options.password,
-    port: parseInt(options.port, 10),
-    database: options.database,
-    migrationsDir: "migrations"
-  };
-  try {
-    await (0, import_promises4.access)(configFilePath);
-    const configFileContent = await (0, import_promises4.readFile)(configFilePath, "utf-8");
-    const config = JSON.parse(configFileContent);
-    const idExists = config.some((client) => client.id === newClientConfig.id);
-    if (idExists) {
-      console.error(`Erro: O cliente com ID "${newClientConfig.id}" j\xE1 existe.`);
-      process.exit(1);
-    }
-    config.push(newClientConfig);
-    await (0, import_promises4.writeFile)(configFilePath, JSON.stringify(config, null, 2), "utf-8");
-    console.log(`Cliente "${newClientConfig.id}" adicionado com sucesso.`);
-  } catch (error) {
-    if (error.code === "ENOENT") {
-      console.error(
-        'Erro: O arquivo de configura\xE7\xE3o "pg-utils.json" n\xE3o existe. Por favor, execute o comando "init" primeiro.'
-      );
-    } else {
-      console.error("Erro ao adicionar cliente:", error.message);
-    }
-  }
-});
-program.command("create").description(
-  "Cria o banco de dados para um cliente espec\xEDfico ou para todos os clientes se nenhum ID for fornecido."
-).option("-i, --id <id>", "ID do cliente").action(async (options) => {
-  try {
-    const clientsManager = await clientsManager_default.getInstance();
-    if (options.id) {
-      const dbClient = clientsManager.getClientById(options.id);
-      if (dbClient) {
-        try {
-          await dbClient.createAndConnectDatabase();
-          console.log(
-            `Banco de dados para o cliente "${options.id}" criado/conectado com sucesso.`
-          );
-        } catch (err) {
-          console.error(
-            `Erro ao criar/conectar banco de dados para o cliente "${options.id}":`,
-            err.message
-          );
-        }
-      } else {
-        console.error(`Cliente com ID "${options.id}" n\xE3o encontrado.`);
-      }
-    } else {
-      const allClients = clientsManager.getAllClients();
-      for (const [id, dbClient] of allClients.entries()) {
-        try {
-          await dbClient.createAndConnectDatabase();
-          console.log(
-            `Banco de dados para o cliente "${id}" criado/conectado com sucesso.`
-          );
-        } catch (err) {
-          console.error(
-            `Erro ao criar/conectar banco de dados para o cliente "${id}":`,
-            err.message
-          );
-        }
-      }
-    }
-  } catch (err) {
-    console.error("Erro ao executar comando:", err.message);
-  }
-});
-program.command("migrate").description("Gerencia as migra\xE7\xF5es do banco de dados").option("-c, --create <name>", "Cria uma nova migra\xE7\xE3o com o nome fornecido").option("-d, --down <name>", "Reverte a \xFAltima migra\xE7\xE3o aplicada").option("-u, --up <name>", "Aplicar uma migra\xE7\xE3o especifica").option("-i, --id <id>", "ID do cliente").action(async (options) => {
-  if (options.create) {
-    const migrate = new migrationCreate_default(migrationsDir);
-    await migrate.createMigrationFile(options.create);
-    console.log(`Migra\xE7\xE3o "${options.create}" criada com sucesso`);
-  } else {
-    const clientsManager = await clientsManager_default.getInstance();
-    if (options.id) {
-      const dbClient = clientsManager.getClientById(options.id);
-      if (!dbClient) {
-        console.error(`Cliente com ID "${options.id}" n\xE3o encontrado.`);
-        process.exit(1);
-      }
-      await handleMigration(dbClient, options);
-    } else {
-      const allClients = clientsManager.getAllClients();
-      for (const [id, dbClient] of allClients.entries()) {
-        console.log(`Aplicando migra\xE7\xF5es para o cliente: ${id}`);
-        await handleMigration(dbClient, options);
-      }
-    }
-  }
-  process.exit(0);
-});
-program.parse();

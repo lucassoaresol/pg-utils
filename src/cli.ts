@@ -5,10 +5,9 @@ import { resolve } from 'node:path';
 
 import { Command } from 'commander';
 
+import ClientsManager from './clientsManager';
 import MigrationCreate from './migrationCreate';
 import PgUtils from './pgUtils';
-
-import ClientsManager from '.';
 
 const program = new Command();
 
