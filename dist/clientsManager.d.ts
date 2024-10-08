@@ -1,5 +1,5 @@
 import PgUtils from './pgUtils.js';
-import './Database.js';
+import './database.js';
 
 declare class ClientsManager {
     private static instance;

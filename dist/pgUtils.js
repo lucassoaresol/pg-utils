@@ -34,7 +34,7 @@ __export(pgUtils_exports, {
 });
 module.exports = __toCommonJS(pgUtils_exports);
 
-// src/Database.ts
+// src/database.ts
 var import_pg = __toESM(require("pg"));
 var { Pool, Client } = import_pg.default;
 var Database = class {
@@ -217,7 +217,7 @@ var Database = class {
     }
   }
 };
-var Database_default = Database;
+var database_default = Database;
 
 // src/migrationManager.ts
 var import_promises = require("fs/promises");
@@ -317,7 +317,7 @@ var PgUtils = class {
     this.port = port;
     this.database = database;
     this.migrationsPath = migrationsPath;
-    this.dbInstance = new Database_default(
+    this.dbInstance = new database_default(
       this.user,
       this.host,
       this.password,

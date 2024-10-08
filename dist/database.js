@@ -27,12 +27,12 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// src/Database.ts
-var Database_exports = {};
-__export(Database_exports, {
-  default: () => Database_default
+// src/database.ts
+var database_exports = {};
+__export(database_exports, {
+  default: () => database_default
 });
-module.exports = __toCommonJS(Database_exports);
+module.exports = __toCommonJS(database_exports);
 var import_pg = __toESM(require("pg"));
 var { Pool, Client } = import_pg.default;
 var Database = class {
@@ -215,4 +215,4 @@ var Database = class {
     }
   }
 };
-var Database_default = Database;
+var database_default = Database;

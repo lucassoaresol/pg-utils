@@ -1,4 +1,4 @@
-import Database from './Database.js';
+import Database from './database.js';
 
 declare class PgUtils {
     private user;

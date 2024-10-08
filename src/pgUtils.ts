@@ -1,4 +1,4 @@
-import Database from './Database';
+import Database from './database';
 import MigrationManager from './migrationManager';
 
 class PgUtils {

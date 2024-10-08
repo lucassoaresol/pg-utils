@@ -31,6 +31,7 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var src_exports = {};
 __export(src_exports, {
   ClientsManager: () => clientsManager_default,
+  Database: () => database_default,
   PgUtils: () => pgUtils_default
 });
 module.exports = __toCommonJS(src_exports);
@@ -39,7 +40,7 @@ module.exports = __toCommonJS(src_exports);
 var import_promises2 = require("fs/promises");
 var import_node_path2 = require("path");
 
-// src/Database.ts
+// src/database.ts
 var import_pg = __toESM(require("pg"));
 var { Pool, Client } = import_pg.default;
 var Database = class {
@@ -222,7 +223,7 @@ var Database = class {
     }
   }
 };
-var Database_default = Database;
+var database_default = Database;
 
 // src/migrationManager.ts
 var import_promises = require("fs/promises");
@@ -322,7 +323,7 @@ var PgUtils = class {
     this.port = port;
     this.database = database;
     this.migrationsPath = migrationsPath;
-    this.dbInstance = new Database_default(
+    this.dbInstance = new database_default(
       this.user,
       this.host,
       this.password,
@@ -401,5 +402,6 @@ var clientsManager_default = ClientsManager;
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   ClientsManager,
+  Database,
   PgUtils
 });

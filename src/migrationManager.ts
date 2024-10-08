@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import Database from './Database';
+import Database from './database';
 
 class MigrationManager {
   constructor(
