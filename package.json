@@ -1,6 +1,6 @@
 {
   "name": "pg-utils",
-  "version": "1.0.1.A.0",
+  "version": "1.0.0",
   "description": "A PostgreSQL utilities library for Node.js",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
