@@ -1,6 +1,6 @@
 {
   "name": "pg-utils",
-  "version": "1.0.3",
+  "version": "1.0.1.A.0",
   "description": "A PostgreSQL utilities library for Node.js",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -11,7 +11,7 @@
     "cli": "node dist/cli.js"
   },
   "bin": {
-    "pg-utils": "dist/cli.js"
+    "pg-utils": "./dist/cli.js"
   },
   "dependencies": {
     "commander": "12.1.0",
