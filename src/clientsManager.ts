@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
+import { IClient } from './IClient';
 import PgUtils from './pgUtils';
 
 class ClientsManager {
@@ -23,7 +24,7 @@ class ClientsManager {
       const configFileContent = await readFile(this.configFilePath, 'utf-8');
       const config = JSON.parse(configFileContent);
 
-      config.forEach((client: any) => {
+      config.forEach((client: IClient) => {
         const pgUtilsInstance = new PgUtils(
           client.user,
           client.host,
@@ -31,6 +32,7 @@ class ClientsManager {
           client.port,
           client.database,
           client.migrationsDir,
+          client.manageMigrations,
         );
         this.clientsMap.set(client.id, pgUtilsInstance);
       });
@@ -46,6 +48,18 @@ class ClientsManager {
 
   public getAllClients(): Map<string, PgUtils> {
     return this.clientsMap;
+  }
+
+  public getClientsWithManageMigrations(): Map<string, PgUtils> {
+    const clientsWithMigrations = new Map<string, PgUtils>();
+
+    this.clientsMap.forEach((client, id) => {
+      if (client.getManageMigrations()) {
+        clientsWithMigrations.set(id, client);
+      }
+    });
+
+    return clientsWithMigrations;
   }
 }
 

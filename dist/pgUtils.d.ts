@@ -1,4 +1,5 @@
 import Database from './database.js';
+import MigrationManager from './migrationManager.js';
 
 declare class PgUtils {
     private user;
@@ -7,14 +8,14 @@ declare class PgUtils {
     private port;
     private database;
     private migrationsPath;
+    private manageMigrations;
     private dbInstance;
     private migrations;
-    constructor(user: string, host: string, password: string, port: number, database: string, migrationsPath: string);
+    constructor(user: string, host: string, password: string, port: number, database: string, migrationsPath: string, manageMigrations: boolean);
     createAndConnectDatabase(): Promise<void>;
     getClientDatabase(): Database;
-    revertLastMigration(): Promise<void>;
-    applyAllMigrations(): Promise<void>;
-    applyMigrationByName(name: string, direction: 'up' | 'down'): Promise<void>;
+    getManageMigrations(): boolean;
+    getMigrations(): Promise<MigrationManager | undefined>;
 }
 
 export { PgUtils as default };

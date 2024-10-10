@@ -291,34 +291,19 @@ var MigrationManager = class {
     await this.applyMigration(lastMigration, "down");
     console.log(`Migra\xE7\xE3o ${lastMigration} revertida com sucesso!`);
   }
-  async applyMigrationByName(name, direction) {
-    try {
-      const allMigrations = await (0, import_promises.readdir)(this.migrationsPath);
-      const migrationFile = allMigrations.find(
-        (file) => file.includes(`_${name.replace(/\s+/g, "_")}.sql`)
-      );
-      if (!migrationFile) {
-        console.error(`Erro: Migra\xE7\xE3o com o nome "${name}" n\xE3o encontrada.`);
-        return;
-      }
-      await this.applyMigration(migrationFile, direction);
-      console.log(`Migra\xE7\xE3o "${migrationFile}" (${direction}) aplicada com sucesso.`);
-    } catch (err) {
-      console.error(`Erro ao buscar/aplicar migra\xE7\xE3o "${name}":`, err);
-    }
-  }
 };
 var migrationManager_default = MigrationManager;
 
 // src/pgUtils.ts
 var PgUtils = class {
-  constructor(user, host, password, port, database, migrationsPath) {
+  constructor(user, host, password, port, database, migrationsPath, manageMigrations) {
     this.user = user;
     this.host = host;
     this.password = password;
     this.port = port;
     this.database = database;
     this.migrationsPath = migrationsPath;
+    this.manageMigrations = manageMigrations;
     this.dbInstance = new database_default(
       this.user,
       this.host,
@@ -329,6 +314,11 @@ var PgUtils = class {
     this.migrations = new migrationManager_default(this.migrationsPath, this.dbInstance);
   }
   async createAndConnectDatabase() {
+    if (!this.manageMigrations) {
+      throw new Error(
+        "O gerenciamento de migra\xE7\xF5es n\xE3o est\xE1 ativado. A cria\xE7\xE3o do banco de dados n\xE3o \xE9 permitida."
+      );
+    }
     try {
       await this.dbInstance.createDatabase();
       console.log(`Banco de dados "${this.database}" criado e pool inicializado.`);
@@ -339,17 +329,21 @@ var PgUtils = class {
   getClientDatabase() {
     return this.dbInstance;
   }
-  async revertLastMigration() {
-    await this.migrations.initialize();
-    await this.migrations.revertLastMigration();
+  getManageMigrations() {
+    return this.manageMigrations;
   }
-  async applyAllMigrations() {
-    await this.migrations.initialize();
-    await this.migrations.applyAllMigrations();
-  }
-  async applyMigrationByName(name, direction) {
-    await this.migrations.initialize();
-    await this.migrations.applyMigrationByName(name, direction);
+  async getMigrations() {
+    if (this.manageMigrations) {
+      try {
+        await this.migrations.initialize();
+        console.log("Gerenciamento de migra\xE7\xF5es iniciado.");
+        return this.migrations;
+      } catch (err) {
+        console.error("Erro ao inicializar migra\xE7\xF5es:", err);
+      }
+    } else {
+      console.log("Gerenciamento de migra\xE7\xF5es est\xE1 desativado.");
+    }
   }
 };
 var pgUtils_default = PgUtils;
@@ -378,7 +372,8 @@ var ClientsManager = class _ClientsManager {
           client.password,
           client.port,
           client.database,
-          client.migrationsDir
+          client.migrationsDir,
+          client.manageMigrations
         );
         this.clientsMap.set(client.id, pgUtilsInstance);
       });
@@ -392,6 +387,15 @@ var ClientsManager = class _ClientsManager {
   }
   getAllClients() {
     return this.clientsMap;
+  }
+  getClientsWithManageMigrations() {
+    const clientsWithMigrations = /* @__PURE__ */ new Map();
+    this.clientsMap.forEach((client, id) => {
+      if (client.getManageMigrations()) {
+        clientsWithMigrations.set(id, client);
+      }
+    });
+    return clientsWithMigrations;
   }
 };
 var clientsManager_default = ClientsManager;

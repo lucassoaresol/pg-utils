@@ -83,26 +83,6 @@ class MigrationManager {
     await this.applyMigration(lastMigration, 'down');
     console.log(`Migração ${lastMigration} revertida com sucesso!`);
   }
-
-  public async applyMigrationByName(name: string, direction: 'up' | 'down') {
-    try {
-      const allMigrations = await readdir(this.migrationsPath);
-
-      const migrationFile = allMigrations.find((file) =>
-        file.includes(`_${name.replace(/\s+/g, '_')}.sql`),
-      );
-
-      if (!migrationFile) {
-        console.error(`Erro: Migração com o nome "${name}" não encontrada.`);
-        return;
-      }
-
-      await this.applyMigration(migrationFile, direction);
-      console.log(`Migração "${migrationFile}" (${direction}) aplicada com sucesso.`);
-    } catch (err) {
-      console.error(`Erro ao buscar/aplicar migração "${name}":`, err);
-    }
-  }
 }
 
 export default MigrationManager;

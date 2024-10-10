@@ -12,6 +12,7 @@ class PgUtils {
     private port: number,
     private database: string,
     private migrationsPath: string,
+    private manageMigrations: boolean,
   ) {
     this.dbInstance = new Database(
       this.user,
@@ -24,6 +25,12 @@ class PgUtils {
   }
 
   public async createAndConnectDatabase(): Promise<void> {
+    if (!this.manageMigrations) {
+      throw new Error(
+        'O gerenciamento de migrações não está ativado. A criação do banco de dados não é permitida.',
+      );
+    }
+
     try {
       await this.dbInstance.createDatabase();
       console.log(`Banco de dados "${this.database}" criado e pool inicializado.`);
@@ -36,19 +43,22 @@ class PgUtils {
     return this.dbInstance;
   }
 
-  public async revertLastMigration(): Promise<void> {
-    await this.migrations.initialize();
-    await this.migrations.revertLastMigration();
+  public getManageMigrations(): boolean {
+    return this.manageMigrations;
   }
 
-  public async applyAllMigrations(): Promise<void> {
-    await this.migrations.initialize();
-    await this.migrations.applyAllMigrations();
-  }
-
-  public async applyMigrationByName(name: string, direction: 'up' | 'down') {
-    await this.migrations.initialize();
-    await this.migrations.applyMigrationByName(name, direction);
+  public async getMigrations(): Promise<MigrationManager | undefined> {
+    if (this.manageMigrations) {
+      try {
+        await this.migrations.initialize();
+        console.log('Gerenciamento de migrações iniciado.');
+        return this.migrations;
+      } catch (err) {
+        console.error('Erro ao inicializar migrações:', err);
+      }
+    } else {
+      console.log('Gerenciamento de migrações está desativado.');
+    }
   }
 }
 

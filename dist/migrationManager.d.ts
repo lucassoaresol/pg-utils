@@ -9,7 +9,6 @@ declare class MigrationManager {
     applyMigration(fileName: string, direction: 'up' | 'down'): Promise<void>;
     applyAllMigrations(): Promise<void>;
     revertLastMigration(): Promise<void>;
-    applyMigrationByName(name: string, direction: 'up' | 'down'): Promise<void>;
 }
 
 export { MigrationManager as default };

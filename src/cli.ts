@@ -6,8 +6,9 @@ import { resolve } from 'node:path';
 import { Command } from 'commander';
 
 import ClientsManager from './clientsManager';
+import { IClient } from './IClient';
 import MigrationCreate from './migrationCreate';
-import PgUtils from './pgUtils';
+import MigrationManager from './migrationManager';
 
 const program = new Command();
 
@@ -15,25 +16,11 @@ const migrationsDir = resolve('migrations');
 const configFilePath = resolve('pg-utils.json');
 const gitignorePath = resolve('.gitignore');
 
-async function handleMigration(dbClient: PgUtils, options: any) {
+async function handleMigration(dbClient: MigrationManager, options: any) {
   try {
     if (options.down) {
-      if (typeof options.down === 'string') {
-        console.log(
-          `Revertendo a migração específica: "${options.down}" para o cliente ${dbClient}`,
-        );
-        await dbClient.applyMigrationByName(options.down, 'down');
-      } else {
-        console.log('Revertendo a última migração aplicada.');
-        await dbClient.revertLastMigration();
-      }
-    }
-
-    if (options.up) {
-      console.log(
-        `Aplicando a migração específica: "${options.up}" para o cliente ${dbClient}`,
-      );
-      await dbClient.applyMigrationByName(options.up, 'up');
+      console.log('Revertendo a última migração aplicada.');
+      await dbClient.revertLastMigration();
     }
 
     if (!options.create && !options.down && !options.up) {
@@ -55,7 +42,7 @@ program
       await mkdir(migrationsDir, { recursive: true });
       console.log(`Diretório "${migrationsDir}" criado com sucesso.`);
 
-      const configContent = [
+      const configContent: IClient[] = [
         {
           id: 'development',
           user: 'dev_user',
@@ -64,6 +51,7 @@ program
           port: 5432,
           database: 'dev_database',
           migrationsDir: 'migrations',
+          manageMigrations: true,
         },
         {
           id: 'production',
@@ -73,6 +61,7 @@ program
           port: 5432,
           database: 'prod_database',
           migrationsDir: 'migrations',
+          manageMigrations: false,
         },
       ];
 
@@ -116,6 +105,7 @@ program
   .requiredOption('-p, --password <password>', 'Senha do banco de dados')
   .requiredOption('-P, --port <port>', 'Porta do banco de dados', '5432')
   .requiredOption('-d, --database <database>', 'Nome do banco de dados')
+  .option('-m, --manageMigrations', 'Ativar gerenciamento de migrações', false)
   .action(async (options) => {
     const newClientConfig = {
       id: options.id,
@@ -125,6 +115,7 @@ program
       port: parseInt(options.port, 10),
       database: options.database,
       migrationsDir: 'migrations',
+      manageMigrations: options.manageMigrations || false,
     };
 
     try {
@@ -182,7 +173,7 @@ program
           console.error(`Cliente com ID "${options.id}" não encontrado.`);
         }
       } else {
-        const allClients = clientsManager.getAllClients();
+        const allClients = clientsManager.getClientsWithManageMigrations();
         for (const [id, dbClient] of allClients.entries()) {
           try {
             await dbClient.createAndConnectDatabase();
@@ -205,15 +196,15 @@ program
 program
   .command('migrate')
   .description('Gerencia as migrações do banco de dados')
-  .option('-c, --create <name>', 'Cria uma nova migração com o nome fornecido')
-  .option('-d, --down <name>', 'Reverte a última migração aplicada')
-  .option('-u, --up <name>', 'Aplicar uma migração especifica')
+  .option('-c, --create <name...>', 'Cria uma nova migração com o nome fornecido')
+  .option('-d, --down', 'Reverte a última migração aplicada')
   .option('-i, --id <id>', 'ID do cliente')
   .action(async (options) => {
     if (options.create) {
+      const name = options.create.join(' ');
       const migrate = new MigrationCreate(migrationsDir);
-      await migrate.createMigrationFile(options.create);
-      console.log(`Migração "${options.create}" criada com sucesso`);
+      await migrate.createMigrationFile(name);
+      console.log(`Migração "${name}" criada com sucesso`);
     } else {
       const clientsManager = await ClientsManager.getInstance();
 
@@ -225,12 +216,20 @@ program
           process.exit(1);
         }
 
-        await handleMigration(dbClient, options);
+        const migrations = await dbClient.getMigrations();
+
+        if (!migrations) {
+          console.log('Gerenciamento de migrações não está ativado para este cliente.');
+          process.exit(1);
+        }
+
+        await handleMigration(migrations, options);
       } else {
-        const allClients = clientsManager.getAllClients();
+        const allClients = clientsManager.getClientsWithManageMigrations();
         for (const [id, dbClient] of allClients.entries()) {
           console.log(`Aplicando migrações para o cliente: ${id}`);
-          await handleMigration(dbClient, options);
+          const migrations = await dbClient.getMigrations();
+          await handleMigration(migrations!, options);
         }
       }
     }

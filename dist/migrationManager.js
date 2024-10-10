@@ -92,21 +92,5 @@ var MigrationManager = class {
     await this.applyMigration(lastMigration, "down");
     console.log(`Migra\xE7\xE3o ${lastMigration} revertida com sucesso!`);
   }
-  async applyMigrationByName(name, direction) {
-    try {
-      const allMigrations = await (0, import_promises.readdir)(this.migrationsPath);
-      const migrationFile = allMigrations.find(
-        (file) => file.includes(`_${name.replace(/\s+/g, "_")}.sql`)
-      );
-      if (!migrationFile) {
-        console.error(`Erro: Migra\xE7\xE3o com o nome "${name}" n\xE3o encontrada.`);
-        return;
-      }
-      await this.applyMigration(migrationFile, direction);
-      console.log(`Migra\xE7\xE3o "${migrationFile}" (${direction}) aplicada com sucesso.`);
-    } catch (err) {
-      console.error(`Erro ao buscar/aplicar migra\xE7\xE3o "${name}":`, err);
-    }
-  }
 };
 var migrationManager_default = MigrationManager;
