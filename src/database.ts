@@ -8,6 +8,43 @@ interface IDataDict {
 
 type PoolType = InstanceType<typeof Pool>;
 
+type WhereCondition<T> = T | { value: T; mode: 'not' };
+
+type WhereClause<T> = {
+  [K in keyof T]?: WhereCondition<T[K]>;
+};
+
+type SearchParams<T> = {
+  table: string;
+  where?: WhereClause<T> & { OR?: WhereClause<T> };
+  orderBy?: { [K in keyof T]?: 'ASC' | 'DESC' };
+  fields?: string[];
+};
+
+function processCondition(
+  key: string,
+  condition: any,
+  conditionsArray: string[],
+  whereValues: any[],
+) {
+  if (
+    typeof condition === 'object' &&
+    condition !== null &&
+    'value' in condition &&
+    'mode' in condition
+  ) {
+    if (condition.mode === 'not') {
+      conditionsArray.push(`${key} != $${whereValues.length + 1}`);
+    } else {
+      conditionsArray.push(`${key} = $${whereValues.length + 1}`);
+    }
+    whereValues.push(condition.value);
+  } else {
+    conditionsArray.push(`${key} = $${whereValues.length + 1}`);
+    whereValues.push(condition);
+  }
+}
+
 class Database {
   private pool: PoolType;
 
@@ -139,12 +176,14 @@ class Database {
     await this.pool.query(query, [...values, dataDict[referenceColumn]]);
   }
 
-  public async searchAll<T>(
-    table: string,
-    fields: string[] | null = null,
-    orderBy: { [key: string]: 'ASC' | 'DESC' } | null = null,
-  ): Promise<T[]> {
+  public async findMany<T>({
+    table,
+    fields,
+    orderBy,
+    where,
+  }: SearchParams<T>): Promise<T[]> {
     let query: string = '';
+    const whereValues: any[] = [];
 
     if (fields && fields.length > 0) {
       const selectedFields = fields.join(', ');
@@ -153,9 +192,41 @@ class Database {
       query = `SELECT * FROM ${table}`;
     }
 
+    if (where) {
+      const andConditions: string[] = [];
+      const orConditions: string[] = [];
+
+      Object.keys(where).forEach((key) => {
+        if (key !== 'OR') {
+          const condition = where[key as keyof T];
+          processCondition(key, condition, andConditions, whereValues);
+        }
+      });
+
+      if (where.OR) {
+        Object.keys(where.OR).forEach((key) => {
+          const condition = where.OR![key as keyof T];
+          processCondition(key, condition, orConditions, whereValues);
+        });
+      }
+
+      if (andConditions.length > 0 || orConditions.length > 0) {
+        query += ' WHERE ';
+        if (andConditions.length > 0) {
+          query += `(${andConditions.join(' AND ')})`;
+        }
+        if (orConditions.length > 0) {
+          if (andConditions.length > 0) {
+            query += ' OR ';
+          }
+          query += `(${orConditions.join(' OR ')})`;
+        }
+      }
+    }
+
     if (orderBy && Object.keys(orderBy).length > 0) {
       const ordering = Object.keys(orderBy)
-        .map((key) => `${key} ${orderBy[key]}`)
+        .map((key) => `${key} ${orderBy[key as keyof T]}`)
         .join(', ');
 
       query += ` ORDER BY ${ordering}`;

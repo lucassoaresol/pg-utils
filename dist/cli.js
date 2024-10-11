@@ -35,6 +35,19 @@ var import_node_path2 = require("path");
 // src/database.ts
 var import_pg = __toESM(require("pg"));
 var { Pool, Client } = import_pg.default;
+function processCondition(key, condition, conditionsArray, whereValues) {
+  if (typeof condition === "object" && condition !== null && "value" in condition && "mode" in condition) {
+    if (condition.mode === "not") {
+      conditionsArray.push(`${key} != $${whereValues.length + 1}`);
+    } else {
+      conditionsArray.push(`${key} = $${whereValues.length + 1}`);
+    }
+    whereValues.push(condition.value);
+  } else {
+    conditionsArray.push(`${key} = $${whereValues.length + 1}`);
+    whereValues.push(condition);
+  }
+}
 var Database = class {
   constructor(user, host, password, port, database) {
     this.user = user;
@@ -140,13 +153,47 @@ var Database = class {
   `;
     await this.pool.query(query, [...values, dataDict[referenceColumn]]);
   }
-  async searchAll(table, fields = null, orderBy = null) {
+  async findMany({
+    table,
+    fields,
+    orderBy,
+    where
+  }) {
     let query = "";
+    const whereValues = [];
     if (fields && fields.length > 0) {
       const selectedFields = fields.join(", ");
       query = `SELECT ${selectedFields} FROM ${table}`;
     } else {
       query = `SELECT * FROM ${table}`;
+    }
+    if (where) {
+      const andConditions = [];
+      const orConditions = [];
+      Object.keys(where).forEach((key) => {
+        if (key !== "OR") {
+          const condition = where[key];
+          processCondition(key, condition, andConditions, whereValues);
+        }
+      });
+      if (where.OR) {
+        Object.keys(where.OR).forEach((key) => {
+          const condition = where.OR[key];
+          processCondition(key, condition, orConditions, whereValues);
+        });
+      }
+      if (andConditions.length > 0 || orConditions.length > 0) {
+        query += " WHERE ";
+        if (andConditions.length > 0) {
+          query += `(${andConditions.join(" AND ")})`;
+        }
+        if (orConditions.length > 0) {
+          if (andConditions.length > 0) {
+            query += " OR ";
+          }
+          query += `(${orConditions.join(" OR ")})`;
+        }
+      }
     }
     if (orderBy && Object.keys(orderBy).length > 0) {
       const ordering = Object.keys(orderBy).map((key) => `${key} ${orderBy[key]}`).join(", ");
