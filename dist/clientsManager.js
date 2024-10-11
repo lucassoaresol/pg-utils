@@ -144,27 +144,19 @@ var Database = class {
   `;
     await this.pool.query(query, [...values, dataDict[referenceColumn]]);
   }
-  async searchAll(table, fields = null) {
-    let query;
+  async searchAll(table, fields = null, orderBy = null) {
+    let query = "";
     if (fields && fields.length > 0) {
-      if (fields.length === 1) {
-        query = `
-          SELECT ${fields[0]}
-          FROM ${table};
-        `;
-      } else {
-        const selectedFields = fields.join(", ");
-        query = `
-          SELECT ${selectedFields}
-          FROM ${table};
-        `;
-      }
+      const selectedFields = fields.join(", ");
+      query = `SELECT ${selectedFields} FROM ${table}`;
     } else {
-      query = `
-        SELECT *
-        FROM ${table};
-      `;
+      query = `SELECT * FROM ${table}`;
     }
+    if (orderBy && Object.keys(orderBy).length > 0) {
+      const ordering = Object.keys(orderBy).map((key) => `${key} ${orderBy[key]}`).join(", ");
+      query += ` ORDER BY ${ordering}`;
+    }
+    query += ";";
     const result = await this.pool.query(query);
     return result.rows;
   }
