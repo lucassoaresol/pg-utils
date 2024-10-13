@@ -233,7 +233,8 @@ class Database {
 
     query += ';';
 
-    const result = await this.pool.query(query);
+    const result = await this.pool.query(query, whereValues);
+
     return result.rows as T[];
   }
 
@@ -301,7 +302,7 @@ class Database {
 
     query += ';';
 
-    const result = await this.pool.query(query);
+    const result = await this.pool.query(query, whereValues);
 
     if (result.rows.length > 0) {
       return result.rows[0] as T;
