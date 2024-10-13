@@ -387,17 +387,52 @@ class Database {
     }
   }
 
-  public async deleteFromTable(
-    tableName: string,
-    id: number | string,
-    idColumn: string = 'id',
-  ): Promise<void> {
-    const query = `
-      DELETE FROM ${tableName}
-      WHERE ${idColumn} = $1;
-    `;
+  public async deleteFromTable<T>({
+    table,
+    where,
+  }: {
+    table: string;
+    where?: WhereClause<T>;
+  }): Promise<void> {
+    let query = `DELETE FROM ${table}`;
 
-    await this.pool.query(query, [id]);
+    const whereValues: any[] = [];
+
+    if (where) {
+      const andConditions: string[] = [];
+      const orConditions: string[] = [];
+
+      Object.keys(where).forEach((key) => {
+        if (key !== 'OR') {
+          const condition = where[key as keyof T];
+          processCondition(key, condition, andConditions, whereValues);
+        }
+      });
+
+      if (where.OR) {
+        Object.keys(where.OR).forEach((key) => {
+          const condition = where.OR![key as keyof T];
+          processCondition(key, condition, orConditions, whereValues);
+        });
+      }
+
+      if (andConditions.length > 0 || orConditions.length > 0) {
+        query += ' WHERE ';
+        if (andConditions.length > 0) {
+          query += `(${andConditions.join(' AND ')})`;
+        }
+        if (orConditions.length > 0) {
+          if (andConditions.length > 0) {
+            query += ' OR ';
+          }
+          query += `(${orConditions.join(' OR ')})`;
+        }
+      }
+    }
+
+    query += ';';
+
+    await this.pool.query(query, whereValues);
   }
 
   public async query<T = any>(queryText: string, params: any[] = []): Promise<T[]> {

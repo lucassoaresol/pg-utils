@@ -27,7 +27,10 @@ declare class Database {
     }): Promise<void>;
     findMany<T>({ table, orderBy, select, where, }: SearchParams<T>): Promise<T[]>;
     findFirst<T>({ table, orderBy, select, where, }: SearchParams<T>): Promise<T | null>;
-    deleteFromTable(tableName: string, id: number | string, idColumn?: string): Promise<void>;
+    deleteFromTable<T>({ table, where, }: {
+        table: string;
+        where?: WhereClause<T>;
+    }): Promise<void>;
     query<T = any>(queryText: string, params?: any[]): Promise<T[]>;
 }
 

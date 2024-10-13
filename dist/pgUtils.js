@@ -328,12 +328,42 @@ var Database = class {
       return null;
     }
   }
-  async deleteFromTable(tableName, id, idColumn = "id") {
-    const query = `
-      DELETE FROM ${tableName}
-      WHERE ${idColumn} = $1;
-    `;
-    await this.pool.query(query, [id]);
+  async deleteFromTable({
+    table,
+    where
+  }) {
+    let query = `DELETE FROM ${table}`;
+    const whereValues = [];
+    if (where) {
+      const andConditions = [];
+      const orConditions = [];
+      Object.keys(where).forEach((key) => {
+        if (key !== "OR") {
+          const condition = where[key];
+          processCondition(key, condition, andConditions, whereValues);
+        }
+      });
+      if (where.OR) {
+        Object.keys(where.OR).forEach((key) => {
+          const condition = where.OR[key];
+          processCondition(key, condition, orConditions, whereValues);
+        });
+      }
+      if (andConditions.length > 0 || orConditions.length > 0) {
+        query += " WHERE ";
+        if (andConditions.length > 0) {
+          query += `(${andConditions.join(" AND ")})`;
+        }
+        if (orConditions.length > 0) {
+          if (andConditions.length > 0) {
+            query += " OR ";
+          }
+          query += `(${orConditions.join(" OR ")})`;
+        }
+      }
+    }
+    query += ";";
+    await this.pool.query(query, whereValues);
   }
   async query(queryText, params = []) {
     try {
