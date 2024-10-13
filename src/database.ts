@@ -237,41 +237,71 @@ class Database {
     return result.rows as T[];
   }
 
-  public async searchUniqueByField<T>(
-    table: string,
-    field: string,
-    value: any,
-    fields: string[] | null = null,
-  ): Promise<T | null> {
-    let query: string;
+  public async findFirst<T>({
+    table,
+    orderBy,
+    select,
+    where,
+  }: SearchParams<T>): Promise<T | null> {
+    let query: string = '';
+    const whereValues: any[] = [];
 
-    if (fields && fields.length > 0) {
-      if (fields.length === 1) {
-        query = `
-          SELECT ${fields[0]}
-          FROM ${table}
-          WHERE ${field} = $1
-          LIMIT 1;
-        `;
-      } else {
-        const selectedFields = fields.join(', ');
-        query = `
-          SELECT ${selectedFields}
-          FROM ${table}
-          WHERE ${field} = $1
-          LIMIT 1;
-        `;
-      }
+    if (select && Object.keys(select).length > 0) {
+      const selectedFields = Object.keys(select)
+        .filter((key) => select[key as keyof T] === true)
+        .join(', ');
+
+      query =
+        selectedFields.length > 0
+          ? `SELECT ${selectedFields} FROM ${table}`
+          : `SELECT * FROM ${table}`;
     } else {
-      query = `
-        SELECT *
-        FROM ${table}
-        WHERE ${field} = $1
-        LIMIT 1;
-      `;
+      query = `SELECT * FROM ${table}`;
     }
 
-    const result = await this.pool.query(query, [value]);
+    if (where) {
+      const andConditions: string[] = [];
+      const orConditions: string[] = [];
+
+      Object.keys(where).forEach((key) => {
+        if (key !== 'OR') {
+          const condition = where[key as keyof T];
+          processCondition(key, condition, andConditions, whereValues);
+        }
+      });
+
+      if (where.OR) {
+        Object.keys(where.OR).forEach((key) => {
+          const condition = where.OR![key as keyof T];
+          processCondition(key, condition, orConditions, whereValues);
+        });
+      }
+
+      if (andConditions.length > 0 || orConditions.length > 0) {
+        query += ' WHERE ';
+        if (andConditions.length > 0) {
+          query += `(${andConditions.join(' AND ')})`;
+        }
+        if (orConditions.length > 0) {
+          if (andConditions.length > 0) {
+            query += ' OR ';
+          }
+          query += `(${orConditions.join(' OR ')})`;
+        }
+      }
+    }
+
+    if (orderBy && Object.keys(orderBy).length > 0) {
+      const ordering = Object.keys(orderBy)
+        .map((key) => `${key} ${orderBy[key as keyof T]}`)
+        .join(', ');
+
+      query += ` ORDER BY ${ordering}`;
+    }
+
+    query += ';';
+
+    const result = await this.pool.query(query);
 
     if (result.rows.length > 0) {
       return result.rows[0] as T;
