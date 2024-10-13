@@ -1,5 +1,7 @@
 import Database from './database.js';
 import MigrationManager from './migrationManager.js';
+import './IDatabase.js';
+import 'pg';
 
 declare class PgUtils {
     private user;

@@ -1,27 +1,8 @@
 import pkg from 'pg';
 
+import { IDataDict, PoolType, SearchParams } from './IDatabase';
+
 const { Pool, Client } = pkg;
-
-interface IDataDict {
-  [key: string]: any;
-}
-
-type PoolType = InstanceType<typeof Pool>;
-
-type WhereCondition<T> = T | { value: T; mode: 'not' };
-
-type WhereClause<T> = {
-  [K in keyof T]?: WhereCondition<T[K]>;
-} & {
-  OR?: WhereClause<T>;
-};
-
-type SearchParams<T> = {
-  table: string;
-  where?: WhereClause<T> & { OR?: WhereClause<T> };
-  orderBy?: { [K in keyof T]?: 'ASC' | 'DESC' };
-  fields?: string[];
-};
 
 function processCondition(
   key: string,
@@ -29,21 +10,31 @@ function processCondition(
   conditionsArray: string[],
   whereValues: any[],
 ) {
-  if (
+  if (condition === null || condition === undefined) {
+    conditionsArray.push(`${key} IS NULL`);
+  } else if (
     typeof condition === 'object' &&
-    condition !== null &&
     'value' in condition &&
     'mode' in condition
   ) {
     if (condition.mode === 'not') {
-      conditionsArray.push(`${key} != $${whereValues.length + 1}`);
+      if (condition.value === null) {
+        conditionsArray.push(`${key} IS NOT NULL`);
+      } else {
+        conditionsArray.push(`${key} != $${whereValues.length + 1}`);
+        whereValues.push(condition.value);
+      }
     } else {
       conditionsArray.push(`${key} = $${whereValues.length + 1}`);
+      whereValues.push(condition.value);
     }
-    whereValues.push(condition.value);
   } else {
-    conditionsArray.push(`${key} = $${whereValues.length + 1}`);
-    whereValues.push(condition);
+    if (condition === null) {
+      conditionsArray.push(`${key} IS NULL`);
+    } else {
+      conditionsArray.push(`${key} = $${whereValues.length + 1}`);
+      whereValues.push(condition);
+    }
   }
 }
 
@@ -180,16 +171,22 @@ class Database {
 
   public async findMany<T>({
     table,
-    fields,
     orderBy,
+    select,
     where,
   }: SearchParams<T>): Promise<T[]> {
     let query: string = '';
     const whereValues: any[] = [];
 
-    if (fields && fields.length > 0) {
-      const selectedFields = fields.join(', ');
-      query = `SELECT ${selectedFields} FROM ${table}`;
+    if (select && Object.keys(select).length > 0) {
+      const selectedFields = Object.keys(select)
+        .filter((key) => select[key as keyof T] === true)
+        .join(', ');
+
+      query =
+        selectedFields.length > 0
+          ? `SELECT ${selectedFields} FROM ${table}`
+          : `SELECT * FROM ${table}`;
     } else {
       query = `SELECT * FROM ${table}`;
     }

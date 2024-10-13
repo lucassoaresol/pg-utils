@@ -40,16 +40,27 @@ var import_node_path2 = require("path");
 var import_pg = __toESM(require("pg"));
 var { Pool, Client } = import_pg.default;
 function processCondition(key, condition, conditionsArray, whereValues) {
-  if (typeof condition === "object" && condition !== null && "value" in condition && "mode" in condition) {
+  if (condition === null || condition === void 0) {
+    conditionsArray.push(`${key} IS NULL`);
+  } else if (typeof condition === "object" && "value" in condition && "mode" in condition) {
     if (condition.mode === "not") {
-      conditionsArray.push(`${key} != $${whereValues.length + 1}`);
+      if (condition.value === null) {
+        conditionsArray.push(`${key} IS NOT NULL`);
+      } else {
+        conditionsArray.push(`${key} != $${whereValues.length + 1}`);
+        whereValues.push(condition.value);
+      }
     } else {
       conditionsArray.push(`${key} = $${whereValues.length + 1}`);
+      whereValues.push(condition.value);
     }
-    whereValues.push(condition.value);
   } else {
-    conditionsArray.push(`${key} = $${whereValues.length + 1}`);
-    whereValues.push(condition);
+    if (condition === null) {
+      conditionsArray.push(`${key} IS NULL`);
+    } else {
+      conditionsArray.push(`${key} = $${whereValues.length + 1}`);
+      whereValues.push(condition);
+    }
   }
 }
 var Database = class {
@@ -159,15 +170,15 @@ var Database = class {
   }
   async findMany({
     table,
-    fields,
     orderBy,
+    select,
     where
   }) {
     let query = "";
     const whereValues = [];
-    if (fields && fields.length > 0) {
-      const selectedFields = fields.join(", ");
-      query = `SELECT ${selectedFields} FROM ${table}`;
+    if (select && Object.keys(select).length > 0) {
+      const selectedFields = Object.keys(select).filter((key) => select[key] === true).join(", ");
+      query = selectedFields.length > 0 ? `SELECT ${selectedFields} FROM ${table}` : `SELECT * FROM ${table}`;
     } else {
       query = `SELECT * FROM ${table}`;
     }

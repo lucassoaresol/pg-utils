@@ -1,6 +1,8 @@
 import PgUtils from './pgUtils.js';
 import './database.js';
 import './migrationManager.js';
+import './IDatabase.js';
+import 'pg';
 
 declare class ClientsManager {
     private static instance;

@@ -1,4 +1,6 @@
 import Database from './database.js';
+import './IDatabase.js';
+import 'pg';
 
 declare class MigrationManager {
     private migrationsPath;
