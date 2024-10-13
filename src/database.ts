@@ -12,6 +12,8 @@ type WhereCondition<T> = T | { value: T; mode: 'not' };
 
 type WhereClause<T> = {
   [K in keyof T]?: WhereCondition<T[K]>;
+} & {
+  OR?: WhereClause<T>;
 };
 
 type SearchParams<T> = {
