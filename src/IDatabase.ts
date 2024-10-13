@@ -8,7 +8,10 @@ export interface IDataDict {
 
 export type PoolType = InstanceType<typeof Pool>;
 
-export type WhereCondition<T> = T | { value: T; mode: 'not' };
+export type WhereCondition<T> =
+  | T
+  | { value: T; mode: 'not' }
+  | { lt?: T; lte?: T; gt?: T; gte?: T };
 
 export type WhereClause<T> = {
   [K in keyof T]?: WhereCondition<T[K]>;

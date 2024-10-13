@@ -12,29 +12,45 @@ function processCondition(
 ) {
   if (condition === null || condition === undefined) {
     conditionsArray.push(`${key} IS NULL`);
-  } else if (
-    typeof condition === 'object' &&
-    'value' in condition &&
-    'mode' in condition
-  ) {
-    if (condition.mode === 'not') {
-      if (condition.value === null) {
-        conditionsArray.push(`${key} IS NOT NULL`);
+  } else if (typeof condition === 'object') {
+    if ('value' in condition && 'mode' in condition) {
+      if (condition.mode === 'not') {
+        if (condition.value === null) {
+          conditionsArray.push(`${key} IS NOT NULL`);
+        } else {
+          conditionsArray.push(`${key} != $${whereValues.length + 1}`);
+          whereValues.push(condition.value);
+        }
       } else {
-        conditionsArray.push(`${key} != $${whereValues.length + 1}`);
+        conditionsArray.push(`${key} = $${whereValues.length + 1}`);
         whereValues.push(condition.value);
       }
-    } else {
-      conditionsArray.push(`${key} = $${whereValues.length + 1}`);
-      whereValues.push(condition.value);
+    } else if (
+      'lt' in condition ||
+      'lte' in condition ||
+      'gt' in condition ||
+      'gte' in condition
+    ) {
+      if (condition.lt !== undefined) {
+        conditionsArray.push(`${key} < $${whereValues.length + 1}`);
+        whereValues.push(condition.lt);
+      }
+      if (condition.lte !== undefined) {
+        conditionsArray.push(`${key} <= $${whereValues.length + 1}`);
+        whereValues.push(condition.lte);
+      }
+      if (condition.gt !== undefined) {
+        conditionsArray.push(`${key} > $${whereValues.length + 1}`);
+        whereValues.push(condition.gt);
+      }
+      if (condition.gte !== undefined) {
+        conditionsArray.push(`${key} >= $${whereValues.length + 1}`);
+        whereValues.push(condition.gte);
+      }
     }
   } else {
-    if (condition === null) {
-      conditionsArray.push(`${key} IS NULL`);
-    } else {
-      conditionsArray.push(`${key} = $${whereValues.length + 1}`);
-      whereValues.push(condition);
-    }
+    conditionsArray.push(`${key} = $${whereValues.length + 1}`);
+    whereValues.push(condition);
   }
 }
 

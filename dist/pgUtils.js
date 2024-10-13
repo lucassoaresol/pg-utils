@@ -40,25 +40,40 @@ var { Pool, Client } = import_pg.default;
 function processCondition(key, condition, conditionsArray, whereValues) {
   if (condition === null || condition === void 0) {
     conditionsArray.push(`${key} IS NULL`);
-  } else if (typeof condition === "object" && "value" in condition && "mode" in condition) {
-    if (condition.mode === "not") {
-      if (condition.value === null) {
-        conditionsArray.push(`${key} IS NOT NULL`);
+  } else if (typeof condition === "object") {
+    if ("value" in condition && "mode" in condition) {
+      if (condition.mode === "not") {
+        if (condition.value === null) {
+          conditionsArray.push(`${key} IS NOT NULL`);
+        } else {
+          conditionsArray.push(`${key} != $${whereValues.length + 1}`);
+          whereValues.push(condition.value);
+        }
       } else {
-        conditionsArray.push(`${key} != $${whereValues.length + 1}`);
+        conditionsArray.push(`${key} = $${whereValues.length + 1}`);
         whereValues.push(condition.value);
       }
-    } else {
-      conditionsArray.push(`${key} = $${whereValues.length + 1}`);
-      whereValues.push(condition.value);
+    } else if ("lt" in condition || "lte" in condition || "gt" in condition || "gte" in condition) {
+      if (condition.lt !== void 0) {
+        conditionsArray.push(`${key} < $${whereValues.length + 1}`);
+        whereValues.push(condition.lt);
+      }
+      if (condition.lte !== void 0) {
+        conditionsArray.push(`${key} <= $${whereValues.length + 1}`);
+        whereValues.push(condition.lte);
+      }
+      if (condition.gt !== void 0) {
+        conditionsArray.push(`${key} > $${whereValues.length + 1}`);
+        whereValues.push(condition.gt);
+      }
+      if (condition.gte !== void 0) {
+        conditionsArray.push(`${key} >= $${whereValues.length + 1}`);
+        whereValues.push(condition.gte);
+      }
     }
   } else {
-    if (condition === null) {
-      conditionsArray.push(`${key} IS NULL`);
-    } else {
-      conditionsArray.push(`${key} = $${whereValues.length + 1}`);
-      whereValues.push(condition);
-    }
+    conditionsArray.push(`${key} = $${whereValues.length + 1}`);
+    whereValues.push(condition);
   }
 }
 var Database = class {

@@ -8,6 +8,11 @@ type PoolType = InstanceType<typeof Pool>;
 type WhereCondition<T> = T | {
     value: T;
     mode: 'not';
+} | {
+    lt?: T;
+    lte?: T;
+    gt?: T;
+    gte?: T;
 };
 type WhereClause<T> = {
     [K in keyof T]?: WhereCondition<T[K]>;
