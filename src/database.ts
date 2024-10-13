@@ -1,6 +1,12 @@
 import pkg from 'pg';
 
-import { IDataDict, PoolType, SearchParams, WhereClause } from './IDatabase';
+import {
+  IDataDict,
+  PoolType,
+  SearchParams,
+  SelectFields,
+  WhereClause,
+} from './IDatabase';
 
 const { Pool, Client } = pkg;
 
@@ -147,23 +153,41 @@ class Database {
     }
   }
 
-  public async insertIntoTable(
-    tableName: string,
-    dataDict: IDataDict,
-    returningColumn = 'id',
-  ): Promise<number | string> {
+  public async insertIntoTable<T>({
+    table,
+    dataDict,
+    select,
+  }: {
+    table: string;
+    dataDict: IDataDict;
+    select?: SelectFields<T>;
+  }): Promise<T[] | void> {
     const columns = Object.keys(dataDict);
     const values = columns.map((col) => dataDict[col]);
     const placeholders = columns.map((_, index) => `$${index + 1}`).join(', ');
 
+    let returningClause = '';
+    if (select && Object.keys(select).length > 0) {
+      const selectedFields = Object.keys(select)
+        .filter((key) => select[key as keyof T])
+        .join(', ');
+
+      if (selectedFields.length > 0) {
+        returningClause = `RETURNING ${selectedFields}`;
+      }
+    }
+
     const query = `
-      INSERT INTO ${tableName} (${columns.join(', ')})
-      VALUES (${placeholders})
-      RETURNING ${returningColumn};
-    `;
+    INSERT INTO ${table} (${columns.join(', ')})
+    VALUES (${placeholders})
+    ${returningClause};
+  `;
 
     const result = await this.pool.query(query, values);
-    return result.rows[0][returningColumn];
+
+    if (returningClause && result.rows.length > 0) {
+      return result.rows as T[];
+    }
   }
 
   public async updateIntoTable<T>({

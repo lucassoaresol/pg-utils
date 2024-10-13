@@ -156,17 +156,30 @@ var Database = class {
       await client.end();
     }
   }
-  async insertIntoTable(tableName, dataDict, returningColumn = "id") {
+  async insertIntoTable({
+    table,
+    dataDict,
+    select
+  }) {
     const columns = Object.keys(dataDict);
     const values = columns.map((col) => dataDict[col]);
     const placeholders = columns.map((_, index) => `$${index + 1}`).join(", ");
+    let returningClause = "";
+    if (select && Object.keys(select).length > 0) {
+      const selectedFields = Object.keys(select).filter((key) => select[key]).join(", ");
+      if (selectedFields.length > 0) {
+        returningClause = `RETURNING ${selectedFields}`;
+      }
+    }
     const query = `
-      INSERT INTO ${tableName} (${columns.join(", ")})
-      VALUES (${placeholders})
-      RETURNING ${returningColumn};
-    `;
+    INSERT INTO ${table} (${columns.join(", ")})
+    VALUES (${placeholders})
+    ${returningClause};
+  `;
     const result = await this.pool.query(query, values);
-    return result.rows[0][returningColumn];
+    if (returningClause && result.rows.length > 0) {
+      return result.rows;
+    }
   }
   async updateIntoTable({
     table,
