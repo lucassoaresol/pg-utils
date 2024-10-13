@@ -170,16 +170,46 @@ var Database = class {
     const result = await this.pool.query(query, values);
     return result.rows[0][returningColumn];
   }
-  async updateIntoTable(tableName, dataDict, referenceColumn = "id") {
-    const columns = Object.keys(dataDict).filter((key) => key !== referenceColumn);
+  async updateIntoTable({
+    table,
+    dataDict,
+    where
+  }) {
+    const columns = Object.keys(dataDict);
     const values = columns.map((col) => dataDict[col]);
     const setClause = columns.map((col, index) => `${col} = $${index + 1}`).join(", ");
-    const query = `
-    UPDATE ${tableName}
-    SET ${setClause}
-    WHERE ${referenceColumn} = $${columns.length + 1};
-  `;
-    await this.pool.query(query, [...values, dataDict[referenceColumn]]);
+    let query = `UPDATE ${table} SET ${setClause}`;
+    const whereValues = [...values];
+    if (where) {
+      const andConditions = [];
+      const orConditions = [];
+      Object.keys(where).forEach((key) => {
+        if (key !== "OR") {
+          const condition = where[key];
+          processCondition(key, condition, andConditions, whereValues);
+        }
+      });
+      if (where.OR) {
+        Object.keys(where.OR).forEach((key) => {
+          const condition = where.OR[key];
+          processCondition(key, condition, orConditions, whereValues);
+        });
+      }
+      if (andConditions.length > 0 || orConditions.length > 0) {
+        query += " WHERE ";
+        if (andConditions.length > 0) {
+          query += `(${andConditions.join(" AND ")})`;
+        }
+        if (orConditions.length > 0) {
+          if (andConditions.length > 0) {
+            query += " OR ";
+          }
+          query += `(${orConditions.join(" OR ")})`;
+        }
+      }
+    }
+    query += ";";
+    await this.pool.query(query, whereValues);
   }
   async findMany({
     table,

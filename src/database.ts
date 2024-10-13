@@ -1,6 +1,6 @@
 import pkg from 'pg';
 
-import { IDataDict, PoolType, SearchParams } from './IDatabase';
+import { IDataDict, PoolType, SearchParams, WhereClause } from './IDatabase';
 
 const { Pool, Client } = pkg;
 
@@ -166,23 +166,59 @@ class Database {
     return result.rows[0][returningColumn];
   }
 
-  public async updateIntoTable(
-    tableName: string,
-    dataDict: IDataDict,
-    referenceColumn = 'id',
-  ): Promise<void> {
-    const columns = Object.keys(dataDict).filter((key) => key !== referenceColumn);
+  public async updateIntoTable<T>({
+    table,
+    dataDict,
+    where,
+  }: {
+    table: string;
+    dataDict: IDataDict;
+    where?: WhereClause<T>;
+  }): Promise<void> {
+    const columns = Object.keys(dataDict);
     const values = columns.map((col) => dataDict[col]);
 
     const setClause = columns.map((col, index) => `${col} = $${index + 1}`).join(', ');
 
-    const query = `
-    UPDATE ${tableName}
-    SET ${setClause}
-    WHERE ${referenceColumn} = $${columns.length + 1};
-  `;
+    let query = `UPDATE ${table} SET ${setClause}`;
 
-    await this.pool.query(query, [...values, dataDict[referenceColumn]]);
+    const whereValues: any[] = [...values];
+
+    if (where) {
+      const andConditions: string[] = [];
+      const orConditions: string[] = [];
+
+      Object.keys(where).forEach((key) => {
+        if (key !== 'OR') {
+          const condition = where[key as keyof T];
+          processCondition(key, condition, andConditions, whereValues);
+        }
+      });
+
+      if (where.OR) {
+        Object.keys(where.OR).forEach((key) => {
+          const condition = where.OR![key as keyof T];
+          processCondition(key, condition, orConditions, whereValues);
+        });
+      }
+
+      if (andConditions.length > 0 || orConditions.length > 0) {
+        query += ' WHERE ';
+        if (andConditions.length > 0) {
+          query += `(${andConditions.join(' AND ')})`;
+        }
+        if (orConditions.length > 0) {
+          if (andConditions.length > 0) {
+            query += ' OR ';
+          }
+          query += `(${orConditions.join(' OR ')})`;
+        }
+      }
+    }
+
+    query += ';';
+
+    await this.pool.query(query, whereValues);
   }
 
   public async findMany<T>({

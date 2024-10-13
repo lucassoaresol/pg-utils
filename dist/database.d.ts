@@ -1,4 +1,4 @@
-import { IDataDict, SearchParams } from './IDatabase.js';
+import { IDataDict, WhereClause, SearchParams } from './IDatabase.js';
 import 'pg';
 
 declare class Database {
@@ -16,7 +16,11 @@ declare class Database {
     executeMigration(sql: string): Promise<void>;
     createDatabase(): Promise<void>;
     insertIntoTable(tableName: string, dataDict: IDataDict, returningColumn?: string): Promise<number | string>;
-    updateIntoTable(tableName: string, dataDict: IDataDict, referenceColumn?: string): Promise<void>;
+    updateIntoTable<T>({ table, dataDict, where, }: {
+        table: string;
+        dataDict: IDataDict;
+        where?: WhereClause<T>;
+    }): Promise<void>;
     findMany<T>({ table, orderBy, select, where, }: SearchParams<T>): Promise<T[]>;
     findFirst<T>({ table, orderBy, select, where, }: SearchParams<T>): Promise<T | null>;
     deleteFromTable(tableName: string, id: number | string, idColumn?: string): Promise<void>;
