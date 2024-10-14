@@ -161,7 +161,7 @@ class Database {
     table: string;
     dataDict: IDataDict;
     select?: SelectFields<T>;
-  }): Promise<T[] | void> {
+  }): Promise<T | void> {
     const columns = Object.keys(dataDict);
     const values = columns.map((col) => dataDict[col]);
     const placeholders = columns.map((_, index) => `$${index + 1}`).join(', ');
@@ -186,7 +186,7 @@ class Database {
     const result = await this.pool.query(query, values);
 
     if (returningClause && result.rows.length > 0) {
-      return result.rows as T[];
+      return result.rows[0] as T;
     }
   }
 

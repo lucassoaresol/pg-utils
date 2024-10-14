@@ -182,7 +182,7 @@ var Database = class {
   `;
     const result = await this.pool.query(query, values);
     if (returningClause && result.rows.length > 0) {
-      return result.rows;
+      return result.rows[0];
     }
   }
   async updateIntoTable({

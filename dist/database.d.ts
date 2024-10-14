@@ -19,7 +19,7 @@ declare class Database {
         table: string;
         dataDict: IDataDict;
         select?: SelectFields<T>;
-    }): Promise<T[] | void>;
+    }): Promise<T | void>;
     updateIntoTable<T>({ table, dataDict, where, }: {
         table: string;
         dataDict: IDataDict;
