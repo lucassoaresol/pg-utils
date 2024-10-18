@@ -10,56 +10,6 @@ import {
 
 const { Pool, Client } = pkg;
 
-function processCondition(
-  key: string,
-  condition: any,
-  conditionsArray: string[],
-  whereValues: any[],
-) {
-  if (condition === null || condition === undefined) {
-    conditionsArray.push(`${key} IS NULL`);
-  } else if (typeof condition === 'object') {
-    if ('value' in condition && 'mode' in condition) {
-      if (condition.mode === 'not') {
-        if (condition.value === null) {
-          conditionsArray.push(`${key} IS NOT NULL`);
-        } else {
-          conditionsArray.push(`${key} != $${whereValues.length + 1}`);
-          whereValues.push(condition.value);
-        }
-      } else {
-        conditionsArray.push(`${key} = $${whereValues.length + 1}`);
-        whereValues.push(condition.value);
-      }
-    } else if (
-      'lt' in condition ||
-      'lte' in condition ||
-      'gt' in condition ||
-      'gte' in condition
-    ) {
-      if (condition.lt !== undefined) {
-        conditionsArray.push(`${key} < $${whereValues.length + 1}`);
-        whereValues.push(condition.lt);
-      }
-      if (condition.lte !== undefined) {
-        conditionsArray.push(`${key} <= $${whereValues.length + 1}`);
-        whereValues.push(condition.lte);
-      }
-      if (condition.gt !== undefined) {
-        conditionsArray.push(`${key} > $${whereValues.length + 1}`);
-        whereValues.push(condition.gt);
-      }
-      if (condition.gte !== undefined) {
-        conditionsArray.push(`${key} >= $${whereValues.length + 1}`);
-        whereValues.push(condition.gte);
-      }
-    }
-  } else {
-    conditionsArray.push(`${key} = $${whereValues.length + 1}`);
-    whereValues.push(condition);
-  }
-}
-
 class Database {
   private pool: PoolType;
 
@@ -77,6 +27,75 @@ class Database {
       port: this.port,
       database: this.database,
     });
+  }
+
+  private mapNullToUndefined<T extends Record<string, unknown>>(row: T): T {
+    const mappedRow: Partial<T> = {};
+
+    for (const key in row) {
+      if (Object.prototype.hasOwnProperty.call(row, key)) {
+        const value = row[key];
+        mappedRow[key] = value === null ? undefined : value;
+      }
+    }
+
+    return mappedRow as T;
+  }
+
+  private mapNullToUndefinedInArray<T extends Record<string, unknown>>(
+    array: T[],
+  ): T[] {
+    return array.map((item) => this.mapNullToUndefined(item));
+  }
+
+  private processCondition(
+    key: string,
+    condition: any,
+    conditionsArray: string[],
+    whereValues: any[],
+  ) {
+    if (condition === null || condition === undefined) {
+      conditionsArray.push(`${key} IS NULL`);
+    } else if (typeof condition === 'object') {
+      if ('value' in condition && 'mode' in condition) {
+        if (condition.mode === 'not') {
+          if (condition.value === null) {
+            conditionsArray.push(`${key} IS NOT NULL`);
+          } else {
+            conditionsArray.push(`${key} != $${whereValues.length + 1}`);
+            whereValues.push(condition.value);
+          }
+        } else {
+          conditionsArray.push(`${key} = $${whereValues.length + 1}`);
+          whereValues.push(condition.value);
+        }
+      } else if (
+        'lt' in condition ||
+        'lte' in condition ||
+        'gt' in condition ||
+        'gte' in condition
+      ) {
+        if (condition.lt !== undefined) {
+          conditionsArray.push(`${key} < $${whereValues.length + 1}`);
+          whereValues.push(condition.lt);
+        }
+        if (condition.lte !== undefined) {
+          conditionsArray.push(`${key} <= $${whereValues.length + 1}`);
+          whereValues.push(condition.lte);
+        }
+        if (condition.gt !== undefined) {
+          conditionsArray.push(`${key} > $${whereValues.length + 1}`);
+          whereValues.push(condition.gt);
+        }
+        if (condition.gte !== undefined) {
+          conditionsArray.push(`${key} >= $${whereValues.length + 1}`);
+          whereValues.push(condition.gte);
+        }
+      }
+    } else {
+      conditionsArray.push(`${key} = $${whereValues.length + 1}`);
+      whereValues.push(condition);
+    }
   }
 
   public async connectPool(): Promise<void> {
@@ -162,7 +181,7 @@ class Database {
     dataDict: IDataDict;
     select?: SelectFields<T>;
   }): Promise<T | void> {
-    const columns = Object.keys(dataDict);
+    const columns = Object.keys(dataDict).filter((col) => dataDict[col] !== undefined);
     const values = columns.map((col) => dataDict[col]);
     const placeholders = columns.map((_, index) => `$${index + 1}`).join(', ');
 
@@ -186,7 +205,8 @@ class Database {
     const result = await this.pool.query(query, values);
 
     if (returningClause && result.rows.length > 0) {
-      return result.rows[0] as T;
+      const mappedResult = this.mapNullToUndefined(result.rows[0]);
+      return mappedResult as T;
     }
   }
 
@@ -199,7 +219,7 @@ class Database {
     dataDict: IDataDict;
     where?: WhereClause<T>;
   }): Promise<void> {
-    const columns = Object.keys(dataDict);
+    const columns = Object.keys(dataDict).filter((col) => dataDict[col] !== undefined);
     const values = columns.map((col) => dataDict[col]);
 
     const setClause = columns.map((col, index) => `${col} = $${index + 1}`).join(', ');
@@ -215,14 +235,14 @@ class Database {
       Object.keys(where).forEach((key) => {
         if (key !== 'OR') {
           const condition = where[key as keyof T];
-          processCondition(key, condition, andConditions, whereValues);
+          this.processCondition(key, condition, andConditions, whereValues);
         }
       });
 
       if (where.OR) {
         Object.keys(where.OR).forEach((key) => {
           const condition = where.OR![key as keyof T];
-          processCondition(key, condition, orConditions, whereValues);
+          this.processCondition(key, condition, orConditions, whereValues);
         });
       }
 
@@ -274,14 +294,14 @@ class Database {
       Object.keys(where).forEach((key) => {
         if (key !== 'OR') {
           const condition = where[key as keyof T];
-          processCondition(key, condition, andConditions, whereValues);
+          this.processCondition(key, condition, andConditions, whereValues);
         }
       });
 
       if (where.OR) {
         Object.keys(where.OR).forEach((key) => {
           const condition = where.OR![key as keyof T];
-          processCondition(key, condition, orConditions, whereValues);
+          this.processCondition(key, condition, orConditions, whereValues);
         });
       }
 
@@ -311,7 +331,9 @@ class Database {
 
     const result = await this.pool.query(query, whereValues);
 
-    return result.rows as T[];
+    const cleanedResult = this.mapNullToUndefinedInArray(result.rows);
+
+    return cleanedResult as T[];
   }
 
   public async findFirst<T>({
@@ -343,14 +365,14 @@ class Database {
       Object.keys(where).forEach((key) => {
         if (key !== 'OR') {
           const condition = where[key as keyof T];
-          processCondition(key, condition, andConditions, whereValues);
+          this.processCondition(key, condition, andConditions, whereValues);
         }
       });
 
       if (where.OR) {
         Object.keys(where.OR).forEach((key) => {
           const condition = where.OR![key as keyof T];
-          processCondition(key, condition, orConditions, whereValues);
+          this.processCondition(key, condition, orConditions, whereValues);
         });
       }
 
@@ -381,7 +403,8 @@ class Database {
     const result = await this.pool.query(query, whereValues);
 
     if (result.rows.length > 0) {
-      return result.rows[0] as T;
+      const mappedResult = this.mapNullToUndefined(result.rows[0]);
+      return mappedResult as T;
     } else {
       return null;
     }
@@ -405,14 +428,14 @@ class Database {
       Object.keys(where).forEach((key) => {
         if (key !== 'OR') {
           const condition = where[key as keyof T];
-          processCondition(key, condition, andConditions, whereValues);
+          this.processCondition(key, condition, andConditions, whereValues);
         }
       });
 
       if (where.OR) {
         Object.keys(where.OR).forEach((key) => {
           const condition = where.OR![key as keyof T];
-          processCondition(key, condition, orConditions, whereValues);
+          this.processCondition(key, condition, orConditions, whereValues);
         });
       }
 

@@ -37,45 +37,6 @@ module.exports = __toCommonJS(pgUtils_exports);
 // src/database.ts
 var import_pg = __toESM(require("pg"));
 var { Pool, Client } = import_pg.default;
-function processCondition(key, condition, conditionsArray, whereValues) {
-  if (condition === null || condition === void 0) {
-    conditionsArray.push(`${key} IS NULL`);
-  } else if (typeof condition === "object") {
-    if ("value" in condition && "mode" in condition) {
-      if (condition.mode === "not") {
-        if (condition.value === null) {
-          conditionsArray.push(`${key} IS NOT NULL`);
-        } else {
-          conditionsArray.push(`${key} != $${whereValues.length + 1}`);
-          whereValues.push(condition.value);
-        }
-      } else {
-        conditionsArray.push(`${key} = $${whereValues.length + 1}`);
-        whereValues.push(condition.value);
-      }
-    } else if ("lt" in condition || "lte" in condition || "gt" in condition || "gte" in condition) {
-      if (condition.lt !== void 0) {
-        conditionsArray.push(`${key} < $${whereValues.length + 1}`);
-        whereValues.push(condition.lt);
-      }
-      if (condition.lte !== void 0) {
-        conditionsArray.push(`${key} <= $${whereValues.length + 1}`);
-        whereValues.push(condition.lte);
-      }
-      if (condition.gt !== void 0) {
-        conditionsArray.push(`${key} > $${whereValues.length + 1}`);
-        whereValues.push(condition.gt);
-      }
-      if (condition.gte !== void 0) {
-        conditionsArray.push(`${key} >= $${whereValues.length + 1}`);
-        whereValues.push(condition.gte);
-      }
-    }
-  } else {
-    conditionsArray.push(`${key} = $${whereValues.length + 1}`);
-    whereValues.push(condition);
-  }
-}
 var Database = class {
   constructor(user, host, password, port, database) {
     this.user = user;
@@ -90,6 +51,58 @@ var Database = class {
       port: this.port,
       database: this.database
     });
+  }
+  mapNullToUndefined(row) {
+    const mappedRow = {};
+    for (const key in row) {
+      if (Object.prototype.hasOwnProperty.call(row, key)) {
+        const value = row[key];
+        mappedRow[key] = value === null ? void 0 : value;
+      }
+    }
+    return mappedRow;
+  }
+  mapNullToUndefinedInArray(array) {
+    return array.map((item) => this.mapNullToUndefined(item));
+  }
+  processCondition(key, condition, conditionsArray, whereValues) {
+    if (condition === null || condition === void 0) {
+      conditionsArray.push(`${key} IS NULL`);
+    } else if (typeof condition === "object") {
+      if ("value" in condition && "mode" in condition) {
+        if (condition.mode === "not") {
+          if (condition.value === null) {
+            conditionsArray.push(`${key} IS NOT NULL`);
+          } else {
+            conditionsArray.push(`${key} != $${whereValues.length + 1}`);
+            whereValues.push(condition.value);
+          }
+        } else {
+          conditionsArray.push(`${key} = $${whereValues.length + 1}`);
+          whereValues.push(condition.value);
+        }
+      } else if ("lt" in condition || "lte" in condition || "gt" in condition || "gte" in condition) {
+        if (condition.lt !== void 0) {
+          conditionsArray.push(`${key} < $${whereValues.length + 1}`);
+          whereValues.push(condition.lt);
+        }
+        if (condition.lte !== void 0) {
+          conditionsArray.push(`${key} <= $${whereValues.length + 1}`);
+          whereValues.push(condition.lte);
+        }
+        if (condition.gt !== void 0) {
+          conditionsArray.push(`${key} > $${whereValues.length + 1}`);
+          whereValues.push(condition.gt);
+        }
+        if (condition.gte !== void 0) {
+          conditionsArray.push(`${key} >= $${whereValues.length + 1}`);
+          whereValues.push(condition.gte);
+        }
+      }
+    } else {
+      conditionsArray.push(`${key} = $${whereValues.length + 1}`);
+      whereValues.push(condition);
+    }
   }
   async connectPool() {
     try {
@@ -163,7 +176,7 @@ var Database = class {
     dataDict,
     select
   }) {
-    const columns = Object.keys(dataDict);
+    const columns = Object.keys(dataDict).filter((col) => dataDict[col] !== void 0);
     const values = columns.map((col) => dataDict[col]);
     const placeholders = columns.map((_, index) => `$${index + 1}`).join(", ");
     let returningClause = "";
@@ -180,7 +193,8 @@ var Database = class {
   `;
     const result = await this.pool.query(query, values);
     if (returningClause && result.rows.length > 0) {
-      return result.rows[0];
+      const mappedResult = this.mapNullToUndefined(result.rows[0]);
+      return mappedResult;
     }
   }
   async updateIntoTable({
@@ -188,7 +202,7 @@ var Database = class {
     dataDict,
     where
   }) {
-    const columns = Object.keys(dataDict);
+    const columns = Object.keys(dataDict).filter((col) => dataDict[col] !== void 0);
     const values = columns.map((col) => dataDict[col]);
     const setClause = columns.map((col, index) => `${col} = $${index + 1}`).join(", ");
     let query = `UPDATE ${table} SET ${setClause}`;
@@ -199,13 +213,13 @@ var Database = class {
       Object.keys(where).forEach((key) => {
         if (key !== "OR") {
           const condition = where[key];
-          processCondition(key, condition, andConditions, whereValues);
+          this.processCondition(key, condition, andConditions, whereValues);
         }
       });
       if (where.OR) {
         Object.keys(where.OR).forEach((key) => {
           const condition = where.OR[key];
-          processCondition(key, condition, orConditions, whereValues);
+          this.processCondition(key, condition, orConditions, whereValues);
         });
       }
       if (andConditions.length > 0 || orConditions.length > 0) {
@@ -244,13 +258,13 @@ var Database = class {
       Object.keys(where).forEach((key) => {
         if (key !== "OR") {
           const condition = where[key];
-          processCondition(key, condition, andConditions, whereValues);
+          this.processCondition(key, condition, andConditions, whereValues);
         }
       });
       if (where.OR) {
         Object.keys(where.OR).forEach((key) => {
           const condition = where.OR[key];
-          processCondition(key, condition, orConditions, whereValues);
+          this.processCondition(key, condition, orConditions, whereValues);
         });
       }
       if (andConditions.length > 0 || orConditions.length > 0) {
@@ -272,7 +286,8 @@ var Database = class {
     }
     query += ";";
     const result = await this.pool.query(query, whereValues);
-    return result.rows;
+    const cleanedResult = this.mapNullToUndefinedInArray(result.rows);
+    return cleanedResult;
   }
   async findFirst({
     table,
@@ -294,13 +309,13 @@ var Database = class {
       Object.keys(where).forEach((key) => {
         if (key !== "OR") {
           const condition = where[key];
-          processCondition(key, condition, andConditions, whereValues);
+          this.processCondition(key, condition, andConditions, whereValues);
         }
       });
       if (where.OR) {
         Object.keys(where.OR).forEach((key) => {
           const condition = where.OR[key];
-          processCondition(key, condition, orConditions, whereValues);
+          this.processCondition(key, condition, orConditions, whereValues);
         });
       }
       if (andConditions.length > 0 || orConditions.length > 0) {
@@ -323,7 +338,8 @@ var Database = class {
     query += ";";
     const result = await this.pool.query(query, whereValues);
     if (result.rows.length > 0) {
-      return result.rows[0];
+      const mappedResult = this.mapNullToUndefined(result.rows[0]);
+      return mappedResult;
     } else {
       return null;
     }
@@ -340,13 +356,13 @@ var Database = class {
       Object.keys(where).forEach((key) => {
         if (key !== "OR") {
           const condition = where[key];
-          processCondition(key, condition, andConditions, whereValues);
+          this.processCondition(key, condition, andConditions, whereValues);
         }
       });
       if (where.OR) {
         Object.keys(where.OR).forEach((key) => {
           const condition = where.OR[key];
-          processCondition(key, condition, orConditions, whereValues);
+          this.processCondition(key, condition, orConditions, whereValues);
         });
       }
       if (andConditions.length > 0 || orConditions.length > 0) {

@@ -9,6 +9,9 @@ declare class Database {
     private database;
     private pool;
     constructor(user: string, host: string, password: string, port: number, database: string);
+    private mapNullToUndefined;
+    private mapNullToUndefinedInArray;
+    private processCondition;
     connectPool(): Promise<void>;
     beginTransaction(): Promise<void>;
     commitTransaction(): Promise<void>;
