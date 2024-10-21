@@ -22,6 +22,14 @@ type WhereClause<T> = {
 type SelectFields<T> = {
     [K in keyof T]?: boolean;
 };
+type JoinParams<T> = {
+    table: string;
+    on: {
+        [key: string]: string;
+    };
+    type?: 'INNER' | 'LEFT' | 'RIGHT';
+    select?: SelectFields<T>;
+};
 type SearchParams<T> = {
     table: string;
     where?: WhereClause<T> & {
@@ -31,6 +39,7 @@ type SearchParams<T> = {
         [K in keyof T]?: 'ASC' | 'DESC';
     };
     select?: SelectFields<T>;
+    joins?: JoinParams<any>[];
 };
 
-export type { IDataDict, PoolType, SearchParams, SelectFields, WhereClause, WhereCondition };
+export type { IDataDict, JoinParams, PoolType, SearchParams, SelectFields, WhereClause, WhereCondition };

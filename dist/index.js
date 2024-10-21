@@ -50,6 +50,17 @@ var Database = class {
     this.password = password;
     this.port = port;
     this.database = database;
+    this.createAlias = (table, existingAliases) => {
+      const parts = table.split("_");
+      let alias = parts.map((part) => part[0]).join("");
+      let counter = 0;
+      while (existingAliases.has(alias)) {
+        counter++;
+        alias = parts.map((part) => part[0]).join("") + counter;
+      }
+      existingAliases.add(alias);
+      return alias;
+    };
     this.pool = new Pool({
       user: this.user,
       host: this.host,
@@ -248,29 +259,69 @@ var Database = class {
     table,
     orderBy,
     select,
-    where
+    where,
+    joins
   }) {
     let query = "";
+    let query_aux = "";
+    const selectedFields = [];
     const whereValues = [];
+    const existingAliases = /* @__PURE__ */ new Set();
+    const mainTableAlias = this.createAlias(table, existingAliases);
     if (select && Object.keys(select).length > 0) {
-      const selectedFields = Object.keys(select).filter((key) => select[key] === true).join(", ");
-      query = selectedFields.length > 0 ? `SELECT ${selectedFields} FROM ${table}` : `SELECT * FROM ${table}`;
+      selectedFields.push(
+        ...Object.keys(select).filter((key) => select[key] === true).map((key) => `${mainTableAlias}.${key}`)
+      );
     } else {
-      query = `SELECT * FROM ${table}`;
+      selectedFields.push(`${mainTableAlias}.*`);
     }
+    if (joins && joins.length > 0) {
+      for (const join2 of joins) {
+        const joinAlias = this.createAlias(join2.table, existingAliases);
+        const joinType = join2.type || "INNER";
+        if (join2.select && Object.keys(join2.select).length > 0) {
+          selectedFields.push(
+            ...Object.keys(join2.select).filter((key) => join2.select[key] === true).map((key) => `${joinAlias}.${key} AS ${joinAlias}_${key}`)
+          );
+        } else {
+          const joinColumns = await this.query(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = $1",
+            [join2.table]
+          );
+          selectedFields.push(
+            ...joinColumns.map(
+              (column) => `${joinAlias}.${column.column_name} AS ${joinAlias}_${column.column_name}`
+            )
+          );
+        }
+        const joinConditions = Object.keys(join2.on).map((key) => `${mainTableAlias}.${key} = ${joinAlias}.${join2.on[key]}`).join(" AND ");
+        query_aux += ` ${joinType} JOIN ${join2.table} AS ${joinAlias} ON ${joinConditions}`;
+      }
+    }
+    query = `SELECT ${selectedFields.join(", ")} FROM ${table} AS ${mainTableAlias} ${query_aux}`;
     if (where) {
       const andConditions = [];
       const orConditions = [];
       Object.keys(where).forEach((key) => {
         if (key !== "OR") {
           const condition = where[key];
-          this.processCondition(key, condition, andConditions, whereValues);
+          this.processCondition(
+            `${mainTableAlias}.${key}`,
+            condition,
+            andConditions,
+            whereValues
+          );
         }
       });
       if (where.OR) {
         Object.keys(where.OR).forEach((key) => {
           const condition = where.OR[key];
-          this.processCondition(key, condition, orConditions, whereValues);
+          this.processCondition(
+            `${mainTableAlias}.${key}`,
+            condition,
+            orConditions,
+            whereValues
+          );
         });
       }
       if (andConditions.length > 0 || orConditions.length > 0) {
@@ -287,7 +338,7 @@ var Database = class {
       }
     }
     if (orderBy && Object.keys(orderBy).length > 0) {
-      const ordering = Object.keys(orderBy).map((key) => `${key} ${orderBy[key]}`).join(", ");
+      const ordering = Object.keys(orderBy).map((key) => `${mainTableAlias}.${key} ${orderBy[key]}`).join(", ");
       query += ` ORDER BY ${ordering}`;
     }
     query += ";";
@@ -299,29 +350,69 @@ var Database = class {
     table,
     orderBy,
     select,
-    where
+    where,
+    joins
   }) {
     let query = "";
+    let query_aux = "";
+    const selectedFields = [];
     const whereValues = [];
+    const existingAliases = /* @__PURE__ */ new Set();
+    const mainTableAlias = this.createAlias(table, existingAliases);
     if (select && Object.keys(select).length > 0) {
-      const selectedFields = Object.keys(select).filter((key) => select[key] === true).join(", ");
-      query = selectedFields.length > 0 ? `SELECT ${selectedFields} FROM ${table}` : `SELECT * FROM ${table}`;
+      selectedFields.push(
+        ...Object.keys(select).filter((key) => select[key] === true).map((key) => `${mainTableAlias}.${key}`)
+      );
     } else {
-      query = `SELECT * FROM ${table}`;
+      selectedFields.push(`${mainTableAlias}.*`);
     }
+    if (joins && joins.length > 0) {
+      for (const join2 of joins) {
+        const joinAlias = this.createAlias(join2.table, existingAliases);
+        const joinType = join2.type || "INNER";
+        if (join2.select && Object.keys(join2.select).length > 0) {
+          selectedFields.push(
+            ...Object.keys(join2.select).filter((key) => join2.select[key] === true).map((key) => `${joinAlias}.${key} AS ${joinAlias}_${key}`)
+          );
+        } else {
+          const joinColumns = await this.query(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = $1",
+            [join2.table]
+          );
+          selectedFields.push(
+            ...joinColumns.map(
+              (column) => `${joinAlias}.${column.column_name} AS ${joinAlias}_${column.column_name}`
+            )
+          );
+        }
+        const joinConditions = Object.keys(join2.on).map((key) => `${mainTableAlias}.${key} = ${joinAlias}.${join2.on[key]}`).join(" AND ");
+        query_aux += ` ${joinType} JOIN ${join2.table} AS ${joinAlias} ON ${joinConditions}`;
+      }
+    }
+    query = `SELECT ${selectedFields.join(", ")} FROM ${table} AS ${mainTableAlias} ${query_aux}`;
     if (where) {
       const andConditions = [];
       const orConditions = [];
       Object.keys(where).forEach((key) => {
         if (key !== "OR") {
           const condition = where[key];
-          this.processCondition(key, condition, andConditions, whereValues);
+          this.processCondition(
+            `${mainTableAlias}.${key}`,
+            condition,
+            andConditions,
+            whereValues
+          );
         }
       });
       if (where.OR) {
         Object.keys(where.OR).forEach((key) => {
           const condition = where.OR[key];
-          this.processCondition(key, condition, orConditions, whereValues);
+          this.processCondition(
+            `${mainTableAlias}.${key}`,
+            condition,
+            orConditions,
+            whereValues
+          );
         });
       }
       if (andConditions.length > 0 || orConditions.length > 0) {
@@ -338,7 +429,7 @@ var Database = class {
       }
     }
     if (orderBy && Object.keys(orderBy).length > 0) {
-      const ordering = Object.keys(orderBy).map((key) => `${key} ${orderBy[key]}`).join(", ");
+      const ordering = Object.keys(orderBy).map((key) => `${mainTableAlias}.${key} ${orderBy[key]}`).join(", ");
       query += ` ORDER BY ${ordering}`;
     }
     query += ";";

@@ -9,6 +9,7 @@ declare class Database {
     private database;
     private pool;
     constructor(user: string, host: string, password: string, port: number, database: string);
+    private createAlias;
     private mapNullToUndefined;
     private mapNullToUndefinedInArray;
     private processCondition;
@@ -28,8 +29,8 @@ declare class Database {
         dataDict: IDataDict;
         where?: WhereClause<T>;
     }): Promise<void>;
-    findMany<T>({ table, orderBy, select, where, }: SearchParams<T>): Promise<T[]>;
-    findFirst<T>({ table, orderBy, select, where, }: SearchParams<T>): Promise<T | null>;
+    findMany<T>({ table, orderBy, select, where, joins, }: SearchParams<T>): Promise<T[]>;
+    findFirst<T>({ table, orderBy, select, where, joins, }: SearchParams<T>): Promise<T | null>;
     deleteFromTable<T>({ table, where, }: {
         table: string;
         where?: WhereClause<T>;
