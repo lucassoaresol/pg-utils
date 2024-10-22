@@ -14,8 +14,8 @@ class ClientsManager {
   public static async getInstance(): Promise<ClientsManager> {
     if (!ClientsManager.instance) {
       ClientsManager.instance = new ClientsManager();
-      await ClientsManager.instance.loadClientsConfig();
     }
+    await ClientsManager.instance.loadClientsConfig();
     return ClientsManager.instance;
   }
 

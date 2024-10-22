@@ -626,8 +626,8 @@ var ClientsManager = class _ClientsManager {
   static async getInstance() {
     if (!_ClientsManager.instance) {
       _ClientsManager.instance = new _ClientsManager();
-      await _ClientsManager.instance.loadClientsConfig();
     }
+    await _ClientsManager.instance.loadClientsConfig();
     return _ClientsManager.instance;
   }
   async loadClientsConfig() {
