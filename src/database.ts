@@ -1,6 +1,9 @@
+import { EventEmitter } from 'node:events';
+
 import pkg from 'pg';
 
 import {
+  ClientType,
   IDataDict,
   PoolType,
   SearchParams,
@@ -10,8 +13,9 @@ import {
 
 const { Pool, Client } = pkg;
 
-class Database {
+class Database extends EventEmitter {
   private pool: PoolType;
+  private listenerClient: ClientType;
 
   constructor(
     private user: string,
@@ -20,6 +24,7 @@ class Database {
     private port: number,
     private database: string,
   ) {
+    super();
     this.pool = new Pool({
       user: this.user,
       host: this.host,
@@ -27,6 +32,41 @@ class Database {
       port: this.port,
       database: this.database,
     });
+
+    this.listenerClient = new Client({
+      user: this.user,
+      host: this.host,
+      password: this.password,
+      port: this.port,
+      database: this.database,
+    });
+  }
+
+  public async listenToEvents(channel: string): Promise<void> {
+    try {
+      await this.listenerClient.connect();
+      console.log(`Escutando o canal "${channel}" para eventos...`);
+
+      await this.listenerClient.query(`LISTEN ${channel}`);
+      this.listenerClient.on('notification', (msg) => {
+        const payload = msg.payload ? JSON.parse(msg.payload) : null;
+        console.log(`Notificação recebida no canal "${channel}":`, payload);
+        this.emit(channel, payload);
+      });
+    } catch (err) {
+      console.error('Erro ao escutar eventos:', err);
+      throw err;
+    }
+  }
+
+  public async stopListening(): Promise<void> {
+    try {
+      await this.listenerClient.end();
+      console.log('Parou de escutar eventos.');
+    } catch (err) {
+      console.error('Erro ao parar o listener:', err);
+      throw err;
+    }
   }
 
   private createAlias = (table: string, existingAliases: Set<string>): string => {
