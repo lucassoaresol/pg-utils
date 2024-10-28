@@ -1,11 +1,12 @@
 import pkg from 'pg';
 
-const { Pool } = pkg;
+const { Pool, Client } = pkg;
 
 export interface IDataDict {
   [key: string]: any;
 }
 
+export type ClientType = InstanceType<typeof Client>;
 export type PoolType = InstanceType<typeof Pool>;
 
 export type WhereCondition<T> =
