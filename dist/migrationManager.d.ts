@@ -1,4 +1,5 @@
 import Database from './database.js';
+import 'node:events';
 import './IDatabase.js';
 import 'pg';
 

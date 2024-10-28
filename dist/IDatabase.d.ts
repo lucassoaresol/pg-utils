@@ -1,9 +1,11 @@
 import pkg from 'pg';
 
 declare const Pool: typeof pkg.Pool;
+declare const Client: typeof pkg.Client;
 interface IDataDict {
     [key: string]: any;
 }
+type ClientType = InstanceType<typeof Client>;
 type PoolType = InstanceType<typeof Pool>;
 type WhereCondition<T> = T | {
     value: T;
@@ -42,4 +44,4 @@ type SearchParams<T> = {
     joins?: JoinParams<any>[];
 };
 
-export type { IDataDict, JoinParams, PoolType, SearchParams, SelectFields, WhereClause, WhereCondition };
+export type { ClientType, IDataDict, JoinParams, PoolType, SearchParams, SelectFields, WhereClause, WhereCondition };

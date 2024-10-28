@@ -1,5 +1,6 @@
 import Database from './database.js';
 import MigrationManager from './migrationManager.js';
+import 'node:events';
 import './IDatabase.js';
 import 'pg';
 

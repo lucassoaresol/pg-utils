@@ -1,6 +1,7 @@
 import PgUtils from './pgUtils.js';
 import './database.js';
 import './migrationManager.js';
+import 'node:events';
 import './IDatabase.js';
 import 'pg';
 

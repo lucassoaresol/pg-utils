@@ -27,4 +27,4 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var IDatabase_exports = {};
 module.exports = __toCommonJS(IDatabase_exports);
 var import_pg = __toESM(require("pg"));
-var { Pool } = import_pg.default;
+var { Pool, Client } = import_pg.default;

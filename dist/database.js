@@ -33,10 +33,12 @@ __export(database_exports, {
   default: () => database_default
 });
 module.exports = __toCommonJS(database_exports);
+var import_node_events = require("events");
 var import_pg = __toESM(require("pg"));
 var { Pool, Client } = import_pg.default;
-var Database = class {
+var Database = class extends import_node_events.EventEmitter {
   constructor(user, host, password, port, database) {
+    super();
     this.user = user;
     this.host = host;
     this.password = password;
@@ -60,6 +62,37 @@ var Database = class {
       port: this.port,
       database: this.database
     });
+    this.listenerClient = new Client({
+      user: this.user,
+      host: this.host,
+      password: this.password,
+      port: this.port,
+      database: this.database
+    });
+  }
+  async listenToEvents(channel) {
+    try {
+      await this.listenerClient.connect();
+      console.log(`Escutando o canal "${channel}" para eventos...`);
+      await this.listenerClient.query(`LISTEN ${channel}`);
+      this.listenerClient.on("notification", (msg) => {
+        const payload = msg.payload ? JSON.parse(msg.payload) : null;
+        console.log(`Notifica\xE7\xE3o recebida no canal "${channel}":`, payload);
+        this.emit(channel, payload);
+      });
+    } catch (err) {
+      console.error("Erro ao escutar eventos:", err);
+      throw err;
+    }
+  }
+  async stopListening() {
+    try {
+      await this.listenerClient.end();
+      console.log("Parou de escutar eventos.");
+    } catch (err) {
+      console.error("Erro ao parar o listener:", err);
+      throw err;
+    }
   }
   mapNullToUndefined(row) {
     const mappedRow = {};
