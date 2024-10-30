@@ -73,11 +73,9 @@ var Database = class extends import_node_events.EventEmitter {
   async listenToEvents(channel) {
     try {
       await this.listenerClient.connect();
-      console.log(`Escutando o canal "${channel}" para eventos...`);
       await this.listenerClient.query(`LISTEN ${channel}`);
       this.listenerClient.on("notification", (msg) => {
         const payload = msg.payload ? JSON.parse(msg.payload) : null;
-        console.log(`Notifica\xE7\xE3o recebida no canal "${channel}":`, payload);
         this.emit(channel, payload);
       });
     } catch (err) {

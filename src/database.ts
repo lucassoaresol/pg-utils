@@ -45,12 +45,10 @@ class Database extends EventEmitter {
   public async listenToEvents(channel: string): Promise<void> {
     try {
       await this.listenerClient.connect();
-      console.log(`Escutando o canal "${channel}" para eventos...`);
 
       await this.listenerClient.query(`LISTEN ${channel}`);
       this.listenerClient.on('notification', (msg) => {
         const payload = msg.payload ? JSON.parse(msg.payload) : null;
-        console.log(`Notificação recebida no canal "${channel}":`, payload);
         this.emit(channel, payload);
       });
     } catch (err) {
