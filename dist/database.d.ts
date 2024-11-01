@@ -29,8 +29,8 @@ declare class Database extends EventEmitter {
         dataDict: IDataDict;
         where?: WhereClause<T>;
     }): Promise<void>;
-    findMany<T>({ table, orderBy, select, where, joins, }: SearchParams<T>): Promise<T[]>;
-    findFirst<T>({ table, orderBy, select, where, joins, }: SearchParams<T>): Promise<T | null>;
+    findMany<T>({ table, orderBy, select, where, joins, limit, }: SearchParams<T>): Promise<T[]>;
+    findFirst<T>(params: SearchParams<T>): Promise<T | null>;
     deleteFromTable<T>({ table, where, }: {
         table: string;
         where?: WhereClause<T>;

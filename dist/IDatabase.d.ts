@@ -42,6 +42,7 @@ type SearchParams<T> = {
     };
     select?: SelectFields<T>;
     joins?: JoinParams<any>[];
+    limit?: number;
 };
 
 export type { ClientType, IDataDict, JoinParams, PoolType, SearchParams, SelectFields, WhereClause, WhereCondition };

@@ -284,6 +284,7 @@ class Database extends EventEmitter {
     select,
     where,
     joins,
+    limit,
   }: SearchParams<T>): Promise<T[]> {
     let query: string = '';
     let query_aux: string = '';
@@ -388,6 +389,10 @@ class Database extends EventEmitter {
       query += ` ORDER BY ${ordering}`;
     }
 
+    if (limit) {
+      query += ` LIMIT ${limit}`;
+    }
+
     query += ';';
 
     const result = await this.pool.query(query, whereValues);
@@ -397,126 +402,10 @@ class Database extends EventEmitter {
     return cleanedResult as T[];
   }
 
-  public async findFirst<T>({
-    table,
-    orderBy,
-    select,
-    where,
-    joins,
-  }: SearchParams<T>): Promise<T | null> {
-    let query: string = '';
-    let query_aux: string = '';
-    const selectedFields: string[] = [];
-    const whereValues: any[] = [];
-    const existingAliases = new Set<string>();
+  public async findFirst<T>(params: SearchParams<T>): Promise<T | null> {
+    const result = await this.findMany<T>({ ...params, limit: 1 });
 
-    const mainTableAlias = this.createAlias(table, existingAliases);
-
-    if (select && Object.keys(select).length > 0) {
-      selectedFields.push(
-        ...Object.keys(select)
-          .filter((key) => select[key as keyof T] === true)
-          .map((key) => `${mainTableAlias}.${key}`),
-      );
-    } else {
-      selectedFields.push(`${mainTableAlias}.*`);
-    }
-
-    if (joins && joins.length > 0) {
-      for (const join of joins) {
-        const joinAlias = this.createAlias(join.table, existingAliases);
-        const joinType = join.type || 'INNER';
-
-        if (join.select && Object.keys(join.select).length > 0) {
-          selectedFields.push(
-            ...Object.keys(join.select)
-              .filter((key) => join.select![key as keyof T] === true)
-              .map((key) => `${joinAlias}.${key} AS ${joinAlias}_${key}`),
-          );
-        } else {
-          const joinColumns = await this.query(
-            'SELECT column_name FROM information_schema.columns WHERE table_name = $1',
-            [join.table],
-          );
-
-          selectedFields.push(
-            ...joinColumns.map(
-              (column: { column_name: string }) =>
-                `${joinAlias}.${column.column_name} AS ${joinAlias}_${column.column_name}`,
-            ),
-          );
-        }
-
-        const joinConditions = Object.keys(join.on)
-          .map((key) => `${mainTableAlias}.${key} = ${joinAlias}.${join.on[key]}`)
-          .join(' AND ');
-
-        query_aux += ` ${joinType} JOIN ${join.table} AS ${joinAlias} ON ${joinConditions}`;
-      }
-    }
-
-    query = `SELECT ${selectedFields.join(', ')} FROM ${table} AS ${mainTableAlias} ${query_aux}`;
-
-    if (where) {
-      const andConditions: string[] = [];
-      const orConditions: string[] = [];
-
-      Object.keys(where).forEach((key) => {
-        if (key !== 'OR') {
-          const condition = where[key as keyof T];
-          this.processCondition(
-            `${mainTableAlias}.${key}`,
-            condition,
-            andConditions,
-            whereValues,
-          );
-        }
-      });
-
-      if (where.OR) {
-        Object.keys(where.OR).forEach((key) => {
-          const condition = where.OR![key as keyof T];
-          this.processCondition(
-            `${mainTableAlias}.${key}`,
-            condition,
-            orConditions,
-            whereValues,
-          );
-        });
-      }
-
-      if (andConditions.length > 0 || orConditions.length > 0) {
-        query += ' WHERE ';
-        if (andConditions.length > 0) {
-          query += `(${andConditions.join(' AND ')})`;
-        }
-        if (orConditions.length > 0) {
-          if (andConditions.length > 0) {
-            query += ' OR ';
-          }
-          query += `(${orConditions.join(' OR ')})`;
-        }
-      }
-    }
-
-    if (orderBy && Object.keys(orderBy).length > 0) {
-      const ordering = Object.keys(orderBy)
-        .map((key) => `${mainTableAlias}.${key} ${orderBy[key as keyof T]}`)
-        .join(', ');
-
-      query += ` ORDER BY ${ordering}`;
-    }
-
-    query += ';';
-
-    const result = await this.pool.query(query, whereValues);
-
-    if (result.rows.length > 0) {
-      const mappedResult = this.mapNullToUndefined(result.rows[0]);
-      return mappedResult as T;
-    } else {
-      return null;
-    }
+    return result.length > 0 ? result[0] : null;
   }
 
   public async deleteFromTable<T>({

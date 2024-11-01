@@ -37,4 +37,5 @@ export type SearchParams<T> = {
   orderBy?: { [K in keyof T]?: 'ASC' | 'DESC' };
   select?: SelectFields<T>;
   joins?: JoinParams<any>[];
+  limit?: number;
 };
