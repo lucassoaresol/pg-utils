@@ -18,10 +18,6 @@ declare class Database extends EventEmitter {
     private mapNullToUndefinedInArray;
     private processCondition;
     connectPool(): Promise<void>;
-    beginTransaction(): Promise<void>;
-    commitTransaction(): Promise<void>;
-    rollbackTransaction(): Promise<void>;
-    executeMigration(sql: string): Promise<void>;
     createDatabase(): Promise<void>;
     insertIntoTable<T>({ table, dataDict, select, }: {
         table: string;

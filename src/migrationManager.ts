@@ -36,8 +36,8 @@ class MigrationManager {
     const sqlToExecute = direction === 'up' ? up.replace('-- up', '') : down;
 
     try {
-      await this.db.beginTransaction();
-      await this.db.executeMigration(sqlToExecute);
+      await this.db.query('BEGIN');
+      await this.db.query(sqlToExecute);
 
       if (direction === 'up') {
         await this.db.query(`INSERT INTO "_migrations" (name) VALUES ($1)`, [fileName]);
@@ -45,10 +45,10 @@ class MigrationManager {
         await this.db.query(`DELETE FROM "_migrations" WHERE name = $1`, [fileName]);
       }
 
-      await this.db.commitTransaction();
+      await this.db.query('COMMIT');
     } catch (err) {
       console.error(`Erro ao aplicar migração "${fileName}" (${direction}):`, err);
-      await this.db.rollbackTransaction();
+      await this.db.query('ROLLBACK');
       throw err;
     }
   }

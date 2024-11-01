@@ -161,46 +161,6 @@ class Database extends EventEmitter {
     }
   }
 
-  public async beginTransaction(): Promise<void> {
-    try {
-      await this.pool.query('BEGIN');
-      console.log('Transação iniciada.');
-    } catch (err) {
-      console.error('Erro ao iniciar a transação:', err);
-      throw err;
-    }
-  }
-
-  public async commitTransaction(): Promise<void> {
-    try {
-      await this.pool.query('COMMIT');
-      console.log('Transação comitada.');
-    } catch (err) {
-      console.error('Erro ao comitar a transação:', err);
-      throw err;
-    }
-  }
-
-  public async rollbackTransaction(): Promise<void> {
-    try {
-      await this.pool.query('ROLLBACK');
-      console.log('Transação revertida.');
-    } catch (err) {
-      console.error('Erro ao reverter a transação:', err);
-      throw err;
-    }
-  }
-
-  public async executeMigration(sql: string): Promise<void> {
-    try {
-      await this.pool.query(sql);
-      console.log('Migração executada com sucesso.');
-    } catch (err) {
-      console.error('Erro ao executar migração:', err);
-      throw err;
-    }
-  }
-
   public async createDatabase(): Promise<void> {
     const client = new Client({
       user: this.user,

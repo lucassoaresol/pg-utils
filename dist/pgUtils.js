@@ -155,42 +155,6 @@ var Database = class extends import_node_events.EventEmitter {
       throw err;
     }
   }
-  async beginTransaction() {
-    try {
-      await this.pool.query("BEGIN");
-      console.log("Transa\xE7\xE3o iniciada.");
-    } catch (err) {
-      console.error("Erro ao iniciar a transa\xE7\xE3o:", err);
-      throw err;
-    }
-  }
-  async commitTransaction() {
-    try {
-      await this.pool.query("COMMIT");
-      console.log("Transa\xE7\xE3o comitada.");
-    } catch (err) {
-      console.error("Erro ao comitar a transa\xE7\xE3o:", err);
-      throw err;
-    }
-  }
-  async rollbackTransaction() {
-    try {
-      await this.pool.query("ROLLBACK");
-      console.log("Transa\xE7\xE3o revertida.");
-    } catch (err) {
-      console.error("Erro ao reverter a transa\xE7\xE3o:", err);
-      throw err;
-    }
-  }
-  async executeMigration(sql) {
-    try {
-      await this.pool.query(sql);
-      console.log("Migra\xE7\xE3o executada com sucesso.");
-    } catch (err) {
-      console.error("Erro ao executar migra\xE7\xE3o:", err);
-      throw err;
-    }
-  }
   async createDatabase() {
     const client = new Client({
       user: this.user,
@@ -545,17 +509,17 @@ var MigrationManager = class {
     const [up, down] = fileContent.split("-- down");
     const sqlToExecute = direction === "up" ? up.replace("-- up", "") : down;
     try {
-      await this.db.beginTransaction();
-      await this.db.executeMigration(sqlToExecute);
+      await this.db.query("BEGIN");
+      await this.db.query(sqlToExecute);
       if (direction === "up") {
         await this.db.query(`INSERT INTO "_migrations" (name) VALUES ($1)`, [fileName]);
       } else {
         await this.db.query(`DELETE FROM "_migrations" WHERE name = $1`, [fileName]);
       }
-      await this.db.commitTransaction();
+      await this.db.query("COMMIT");
     } catch (err) {
       console.error(`Erro ao aplicar migra\xE7\xE3o "${fileName}" (${direction}):`, err);
-      await this.db.rollbackTransaction();
+      await this.db.query("ROLLBACK");
       throw err;
     }
   }

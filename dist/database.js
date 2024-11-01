@@ -153,42 +153,6 @@ var Database = class extends import_node_events.EventEmitter {
       throw err;
     }
   }
-  async beginTransaction() {
-    try {
-      await this.pool.query("BEGIN");
-      console.log("Transa\xE7\xE3o iniciada.");
-    } catch (err) {
-      console.error("Erro ao iniciar a transa\xE7\xE3o:", err);
-      throw err;
-    }
-  }
-  async commitTransaction() {
-    try {
-      await this.pool.query("COMMIT");
-      console.log("Transa\xE7\xE3o comitada.");
-    } catch (err) {
-      console.error("Erro ao comitar a transa\xE7\xE3o:", err);
-      throw err;
-    }
-  }
-  async rollbackTransaction() {
-    try {
-      await this.pool.query("ROLLBACK");
-      console.log("Transa\xE7\xE3o revertida.");
-    } catch (err) {
-      console.error("Erro ao reverter a transa\xE7\xE3o:", err);
-      throw err;
-    }
-  }
-  async executeMigration(sql) {
-    try {
-      await this.pool.query(sql);
-      console.log("Migra\xE7\xE3o executada com sucesso.");
-    } catch (err) {
-      console.error("Erro ao executar migra\xE7\xE3o:", err);
-      throw err;
-    }
-  }
   async createDatabase() {
     const client = new Client({
       user: this.user,
