@@ -101,54 +101,111 @@ class Database extends EventEmitter {
     return array.map((item) => this.mapNullToUndefined(item));
   }
 
-  private processCondition(
-    key: string,
-    condition: any,
-    conditionsArray: string[],
-    whereValues: any[],
-  ) {
-    if (condition === null || condition === undefined) {
-      conditionsArray.push(`${key} IS NULL`);
-    } else if (typeof condition === 'object') {
-      if ('value' in condition && 'mode' in condition) {
-        if (condition.mode === 'not') {
-          if (condition.value === null) {
-            conditionsArray.push(`${key} IS NOT NULL`);
+  private buildWhereClause(where?: WhereClause): {
+    clause: string;
+    values: any[];
+  } {
+    if (!where) return { clause: '', values: [] };
+
+    const andConditions: string[] = [];
+    const orConditions: string[] = [];
+    const whereValues: any[] = [];
+
+    const processCondition = (
+      key: string,
+      condition: any,
+      conditionsArray: string[],
+      alias?: string,
+    ) => {
+      const column = alias ? `${alias}.${key}` : key;
+
+      if (condition === null || condition === undefined) {
+        conditionsArray.push(`${column} IS NULL`);
+      } else if (typeof condition === 'object') {
+        if ('value' in condition && 'mode' in condition) {
+          if (condition.mode === 'not') {
+            if (condition.value === null) {
+              conditionsArray.push(`${column} IS NOT NULL`);
+            } else {
+              conditionsArray.push(`${column} != $${whereValues.length + 1}`);
+              whereValues.push(condition.value);
+            }
           } else {
-            conditionsArray.push(`${key} != $${whereValues.length + 1}`);
+            conditionsArray.push(`${column} = $${whereValues.length + 1}`);
             whereValues.push(condition.value);
           }
-        } else {
-          conditionsArray.push(`${key} = $${whereValues.length + 1}`);
-          whereValues.push(condition.value);
+        } else if (
+          'lt' in condition ||
+          'lte' in condition ||
+          'gt' in condition ||
+          'gte' in condition
+        ) {
+          if (condition.lt !== undefined) {
+            conditionsArray.push(`${column} < $${whereValues.length + 1}`);
+            whereValues.push(condition.lt);
+          }
+          if (condition.lte !== undefined) {
+            conditionsArray.push(`${column} <= $${whereValues.length + 1}`);
+            whereValues.push(condition.lte);
+          }
+          if (condition.gt !== undefined) {
+            conditionsArray.push(`${column} > $${whereValues.length + 1}`);
+            whereValues.push(condition.gt);
+          }
+          if (condition.gte !== undefined) {
+            conditionsArray.push(`${column} >= $${whereValues.length + 1}`);
+            whereValues.push(condition.gte);
+          }
         }
-      } else if (
-        'lt' in condition ||
-        'lte' in condition ||
-        'gt' in condition ||
-        'gte' in condition
-      ) {
-        if (condition.lt !== undefined) {
-          conditionsArray.push(`${key} < $${whereValues.length + 1}`);
-          whereValues.push(condition.lt);
-        }
-        if (condition.lte !== undefined) {
-          conditionsArray.push(`${key} <= $${whereValues.length + 1}`);
-          whereValues.push(condition.lte);
-        }
-        if (condition.gt !== undefined) {
-          conditionsArray.push(`${key} > $${whereValues.length + 1}`);
-          whereValues.push(condition.gt);
-        }
-        if (condition.gte !== undefined) {
-          conditionsArray.push(`${key} >= $${whereValues.length + 1}`);
-          whereValues.push(condition.gte);
-        }
+      } else {
+        conditionsArray.push(`${column} = $${whereValues.length + 1}`);
+        whereValues.push(condition);
       }
-    } else {
-      conditionsArray.push(`${key} = $${whereValues.length + 1}`);
-      whereValues.push(condition);
+    };
+
+    Object.keys(where).forEach((key) => {
+      if (key !== 'OR') {
+        const condition = where[key];
+        const alias =
+          typeof condition === 'object' && 'alias' in condition
+            ? condition.alias
+            : undefined;
+        const value =
+          typeof condition === 'object' && 'value' in condition
+            ? condition.value
+            : condition;
+        processCondition(key, value, andConditions, alias);
+      }
+    });
+
+    if (where.OR) {
+      Object.keys(where.OR).forEach((key) => {
+        const condition = where.OR![key];
+        const alias =
+          typeof condition === 'object' && 'alias' in condition
+            ? condition.alias
+            : undefined;
+        const value =
+          typeof condition === 'object' && 'value' in condition
+            ? condition.value
+            : condition;
+        processCondition(key, value, orConditions, alias);
+      });
     }
+
+    let clause = '';
+    if (andConditions.length > 0 || orConditions.length > 0) {
+      clause += ' WHERE ';
+      if (andConditions.length > 0) {
+        clause += `(${andConditions.join(' AND ')})`;
+      }
+      if (orConditions.length > 0) {
+        if (andConditions.length > 0) clause += ' OR ';
+        clause += `(${orConditions.join(' OR ')})`;
+      }
+    }
+
+    return { clause, values: whereValues };
   }
 
   public async connectPool(): Promise<void> {
@@ -223,59 +280,23 @@ class Database extends EventEmitter {
     }
   }
 
-  public async updateIntoTable<T>({
+  public async updateIntoTable({
     table,
     dataDict,
     where,
   }: {
     table: string;
     dataDict: IDataDict;
-    where?: WhereClause<T>;
+    where?: WhereClause;
   }): Promise<void> {
     const columns = Object.keys(dataDict).filter((col) => dataDict[col] !== undefined);
     const values = columns.map((col) => dataDict[col]);
 
     const setClause = columns.map((col, index) => `${col} = $${index + 1}`).join(', ');
+    const { clause: whereClause, values: whereValues } = this.buildWhereClause(where);
 
-    let query = `UPDATE ${table} SET ${setClause}`;
-
-    const whereValues: any[] = [...values];
-
-    if (where) {
-      const andConditions: string[] = [];
-      const orConditions: string[] = [];
-
-      Object.keys(where).forEach((key) => {
-        if (key !== 'OR') {
-          const condition = where[key as keyof T];
-          this.processCondition(key, condition, andConditions, whereValues);
-        }
-      });
-
-      if (where.OR) {
-        Object.keys(where.OR).forEach((key) => {
-          const condition = where.OR![key as keyof T];
-          this.processCondition(key, condition, orConditions, whereValues);
-        });
-      }
-
-      if (andConditions.length > 0 || orConditions.length > 0) {
-        query += ' WHERE ';
-        if (andConditions.length > 0) {
-          query += `(${andConditions.join(' AND ')})`;
-        }
-        if (orConditions.length > 0) {
-          if (andConditions.length > 0) {
-            query += ' OR ';
-          }
-          query += `(${orConditions.join(' OR ')})`;
-        }
-      }
-    }
-
-    query += ';';
-
-    await this.pool.query(query, whereValues);
+    const query = `UPDATE ${table} SET ${setClause}${whereClause};`;
+    await this.pool.query(query, [...values, ...whereValues]);
   }
 
   public async findMany<T>({
@@ -289,7 +310,6 @@ class Database extends EventEmitter {
     let query: string = '';
     let query_aux: string = '';
     const selectedFields: string[] = [];
-    const whereValues: any[] = [];
     const existingAliases = new Set<string>();
 
     const mainTableAlias = this.createAlias(table, existingAliases);
@@ -339,47 +359,8 @@ class Database extends EventEmitter {
 
     query = `SELECT ${selectedFields.join(', ')} FROM ${table} AS ${mainTableAlias} ${query_aux}`;
 
-    if (where) {
-      const andConditions: string[] = [];
-      const orConditions: string[] = [];
-
-      Object.keys(where).forEach((key) => {
-        if (key !== 'OR') {
-          const condition = where[key as keyof T];
-          this.processCondition(
-            `${mainTableAlias}.${key}`,
-            condition,
-            andConditions,
-            whereValues,
-          );
-        }
-      });
-
-      if (where.OR) {
-        Object.keys(where.OR).forEach((key) => {
-          const condition = where.OR![key as keyof T];
-          this.processCondition(
-            `${mainTableAlias}.${key}`,
-            condition,
-            orConditions,
-            whereValues,
-          );
-        });
-      }
-
-      if (andConditions.length > 0 || orConditions.length > 0) {
-        query += ' WHERE ';
-        if (andConditions.length > 0) {
-          query += `(${andConditions.join(' AND ')})`;
-        }
-        if (orConditions.length > 0) {
-          if (andConditions.length > 0) {
-            query += ' OR ';
-          }
-          query += `(${orConditions.join(' OR ')})`;
-        }
-      }
-    }
+    const { clause: whereClause, values: whereValues } = this.buildWhereClause(where);
+    query += whereClause;
 
     if (orderBy && Object.keys(orderBy).length > 0) {
       const ordering = Object.keys(orderBy)
@@ -408,51 +389,15 @@ class Database extends EventEmitter {
     return result.length > 0 ? result[0] : null;
   }
 
-  public async deleteFromTable<T>({
+  public async deleteFromTable({
     table,
     where,
   }: {
     table: string;
-    where?: WhereClause<T>;
+    where?: WhereClause;
   }): Promise<void> {
-    let query = `DELETE FROM ${table}`;
-
-    const whereValues: any[] = [];
-
-    if (where) {
-      const andConditions: string[] = [];
-      const orConditions: string[] = [];
-
-      Object.keys(where).forEach((key) => {
-        if (key !== 'OR') {
-          const condition = where[key as keyof T];
-          this.processCondition(key, condition, andConditions, whereValues);
-        }
-      });
-
-      if (where.OR) {
-        Object.keys(where.OR).forEach((key) => {
-          const condition = where.OR![key as keyof T];
-          this.processCondition(key, condition, orConditions, whereValues);
-        });
-      }
-
-      if (andConditions.length > 0 || orConditions.length > 0) {
-        query += ' WHERE ';
-        if (andConditions.length > 0) {
-          query += `(${andConditions.join(' AND ')})`;
-        }
-        if (orConditions.length > 0) {
-          if (andConditions.length > 0) {
-            query += ' OR ';
-          }
-          query += `(${orConditions.join(' OR ')})`;
-        }
-      }
-    }
-
-    query += ';';
-
+    const { clause: whereClause, values: whereValues } = this.buildWhereClause(where);
+    const query = `DELETE FROM ${table}${whereClause};`;
     await this.pool.query(query, whereValues);
   }
 

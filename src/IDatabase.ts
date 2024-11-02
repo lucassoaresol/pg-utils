@@ -9,15 +9,17 @@ export interface IDataDict {
 export type ClientType = InstanceType<typeof Client>;
 export type PoolType = InstanceType<typeof Pool>;
 
-export type WhereCondition<T> =
-  | T
-  | { value: T; mode: 'not' }
-  | { lt?: T; lte?: T; gt?: T; gte?: T };
+export type WhereCondition =
+  | any
+  | { value: any; mode: 'not' }
+  | { lt?: any; lte?: any; gt?: any; gte?: any };
 
-export type WhereClause<T> = {
-  [K in keyof T]?: WhereCondition<T[K]>;
+export type WhereField = any | { value: WhereCondition; alias: string };
+
+export type WhereClause = {
+  [key: string]: WhereField;
 } & {
-  OR?: WhereClause<T>;
+  OR?: WhereClause;
 };
 
 export type SelectFields<T> = {
@@ -33,7 +35,7 @@ export type JoinParams<T> = {
 
 export type SearchParams<T> = {
   table: string;
-  where?: WhereClause<T> & { OR?: WhereClause<T> };
+  where?: WhereClause & { OR?: WhereClause };
   orderBy?: { [K in keyof T]?: 'ASC' | 'DESC' };
   select?: SelectFields<T>;
   joins?: JoinParams<any>[];

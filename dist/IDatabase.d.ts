@@ -7,19 +7,23 @@ interface IDataDict {
 }
 type ClientType = InstanceType<typeof Client>;
 type PoolType = InstanceType<typeof Pool>;
-type WhereCondition<T> = T | {
-    value: T;
+type WhereCondition = any | {
+    value: any;
     mode: 'not';
 } | {
-    lt?: T;
-    lte?: T;
-    gt?: T;
-    gte?: T;
+    lt?: any;
+    lte?: any;
+    gt?: any;
+    gte?: any;
 };
-type WhereClause<T> = {
-    [K in keyof T]?: WhereCondition<T[K]>;
+type WhereField = any | {
+    value: WhereCondition;
+    alias: string;
+};
+type WhereClause = {
+    [key: string]: WhereField;
 } & {
-    OR?: WhereClause<T>;
+    OR?: WhereClause;
 };
 type SelectFields<T> = {
     [K in keyof T]?: boolean;
@@ -34,8 +38,8 @@ type JoinParams<T> = {
 };
 type SearchParams<T> = {
     table: string;
-    where?: WhereClause<T> & {
-        OR?: WhereClause<T>;
+    where?: WhereClause & {
+        OR?: WhereClause;
     };
     orderBy?: {
         [K in keyof T]?: 'ASC' | 'DESC';
@@ -45,4 +49,4 @@ type SearchParams<T> = {
     limit?: number;
 };
 
-export type { ClientType, IDataDict, JoinParams, PoolType, SearchParams, SelectFields, WhereClause, WhereCondition };
+export type { ClientType, IDataDict, JoinParams, PoolType, SearchParams, SelectFields, WhereClause, WhereCondition, WhereField };

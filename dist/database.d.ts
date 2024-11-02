@@ -16,7 +16,7 @@ declare class Database extends EventEmitter {
     private createAlias;
     private mapNullToUndefined;
     private mapNullToUndefinedInArray;
-    private processCondition;
+    private buildWhereClause;
     connectPool(): Promise<void>;
     createDatabase(): Promise<void>;
     insertIntoTable<T>({ table, dataDict, select, }: {
@@ -24,16 +24,16 @@ declare class Database extends EventEmitter {
         dataDict: IDataDict;
         select?: SelectFields<T>;
     }): Promise<T | void>;
-    updateIntoTable<T>({ table, dataDict, where, }: {
+    updateIntoTable({ table, dataDict, where, }: {
         table: string;
         dataDict: IDataDict;
-        where?: WhereClause<T>;
+        where?: WhereClause;
     }): Promise<void>;
     findMany<T>({ table, orderBy, select, where, joins, limit, }: SearchParams<T>): Promise<T[]>;
     findFirst<T>(params: SearchParams<T>): Promise<T | null>;
-    deleteFromTable<T>({ table, where, }: {
+    deleteFromTable({ table, where, }: {
         table: string;
-        where?: WhereClause<T>;
+        where?: WhereClause;
     }): Promise<void>;
     query<T = any>(queryText: string, params?: any[]): Promise<T[]>;
 }
