@@ -103,6 +103,7 @@ class Database extends EventEmitter {
 
   private buildWhereClause(
     where?: WhereClause,
+    values?: any[],
     mainTableAlias?: string,
   ): {
     clause: string;
@@ -112,7 +113,7 @@ class Database extends EventEmitter {
 
     const andConditions: string[] = [];
     const orConditions: string[] = [];
-    const whereValues: any[] = [];
+    const whereValues: any[] = values ? [...values] : [];
 
     const processCondition = (
       key: string,
@@ -288,10 +289,14 @@ class Database extends EventEmitter {
     const values = columns.map((col) => dataDict[col]);
 
     const setClause = columns.map((col, index) => `${col} = $${index + 1}`).join(', ');
-    const { clause: whereClause, values: whereValues } = this.buildWhereClause(where);
+
+    const { clause: whereClause, values: whereValues } = this.buildWhereClause(where, [
+      ...values,
+    ]);
 
     const query = `UPDATE ${table} SET ${setClause}${whereClause};`;
-    await this.pool.query(query, [...values, ...whereValues]);
+
+    await this.pool.query(query, whereValues);
   }
 
   public async findMany<T>({
@@ -370,6 +375,7 @@ class Database extends EventEmitter {
 
     const { clause: whereClause, values: whereValues } = this.buildWhereClause(
       where,
+      undefined,
       mainTableAlias,
     );
     query += whereClause;

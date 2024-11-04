@@ -109,11 +109,11 @@ var Database = class extends import_node_events.EventEmitter {
   mapNullToUndefinedInArray(array) {
     return array.map((item) => this.mapNullToUndefined(item));
   }
-  buildWhereClause(where, mainTableAlias) {
+  buildWhereClause(where, values, mainTableAlias) {
     if (!where) return { clause: "", values: [] };
     const andConditions = [];
     const orConditions = [];
-    const whereValues = [];
+    const whereValues = values ? [...values] : [];
     const processCondition = (key, condition, conditionsArray, alias) => {
       const column = alias && !key.includes(".") ? `${alias}.${key}` : key;
       if (condition === null || condition === void 0) {
@@ -246,9 +246,11 @@ var Database = class extends import_node_events.EventEmitter {
     const columns = Object.keys(dataDict).filter((col) => dataDict[col] !== void 0);
     const values = columns.map((col) => dataDict[col]);
     const setClause = columns.map((col, index) => `${col} = $${index + 1}`).join(", ");
-    const { clause: whereClause, values: whereValues } = this.buildWhereClause(where);
+    const { clause: whereClause, values: whereValues } = this.buildWhereClause(where, [
+      ...values
+    ]);
     const query = `UPDATE ${table} SET ${setClause}${whereClause};`;
-    await this.pool.query(query, [...values, ...whereValues]);
+    await this.pool.query(query, whereValues);
   }
   async findMany({
     table,
@@ -309,6 +311,7 @@ var Database = class extends import_node_events.EventEmitter {
     query = `SELECT ${selectedFields.join(", ")} FROM ${table} AS ${mainTableAlias} ${query_aux}`;
     const { clause: whereClause, values: whereValues } = this.buildWhereClause(
       where,
+      void 0,
       mainTableAlias
     );
     query += whereClause;
