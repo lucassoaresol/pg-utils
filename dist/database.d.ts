@@ -22,15 +22,15 @@ declare class Database extends EventEmitter {
     insertIntoTable<T>({ table, dataDict, select, }: {
         table: string;
         dataDict: IDataDict;
-        select?: SelectFields<T>;
+        select?: SelectFields;
     }): Promise<T | void>;
     updateIntoTable({ table, dataDict, where, }: {
         table: string;
         dataDict: IDataDict;
         where?: WhereClause;
     }): Promise<void>;
-    findMany<T>({ table, orderBy, select, where, joins, limit, }: SearchParams<T>): Promise<T[]>;
-    findFirst<T>(params: SearchParams<T>): Promise<T | null>;
+    findMany<T>({ table, alias, orderBy, select, where, joins, limit, }: SearchParams): Promise<T[]>;
+    findFirst<T>(params: SearchParams): Promise<T | null>;
     deleteFromTable({ table, where, }: {
         table: string;
         where?: WhereClause;

@@ -16,37 +16,34 @@ type WhereCondition = any | {
     gt?: any;
     gte?: any;
 };
-type WhereField = any | {
-    value: WhereCondition;
-    alias: string;
-};
 type WhereClause = {
-    [key: string]: WhereField;
+    [key: string]: WhereCondition;
 } & {
     OR?: WhereClause;
 };
-type SelectFields<T> = {
-    [K in keyof T]?: boolean;
+type SelectFields = {
+    [key: string]: boolean;
 };
-type JoinParams<T> = {
+type JoinParams = {
     table: string;
+    alias?: string;
     on: {
         [key: string]: string;
     };
     type?: 'INNER' | 'LEFT' | 'RIGHT';
-    select?: SelectFields<T>;
 };
-type SearchParams<T> = {
+type SearchParams = {
     table: string;
+    alias?: string;
     where?: WhereClause & {
         OR?: WhereClause;
     };
     orderBy?: {
-        [K in keyof T]?: 'ASC' | 'DESC';
+        [key: string]: 'ASC' | 'DESC';
     };
-    select?: SelectFields<T>;
-    joins?: JoinParams<any>[];
+    select?: SelectFields;
+    joins?: JoinParams[];
     limit?: number;
 };
 
-export type { ClientType, IDataDict, JoinParams, PoolType, SearchParams, SelectFields, WhereClause, WhereCondition, WhereField };
+export type { ClientType, IDataDict, JoinParams, PoolType, SearchParams, SelectFields, WhereClause, WhereCondition };

@@ -105,13 +105,13 @@ var Database = class extends import_node_events.EventEmitter {
   mapNullToUndefinedInArray(array) {
     return array.map((item) => this.mapNullToUndefined(item));
   }
-  buildWhereClause(where) {
+  buildWhereClause(where, mainTableAlias) {
     if (!where) return { clause: "", values: [] };
     const andConditions = [];
     const orConditions = [];
     const whereValues = [];
     const processCondition = (key, condition, conditionsArray, alias) => {
-      const column = alias ? `${alias}.${key}` : key;
+      const column = alias && !key.includes(".") ? `${alias}.${key}` : key;
       if (condition === null || condition === void 0) {
         conditionsArray.push(`${column} IS NULL`);
       } else if (typeof condition === "object") {
@@ -153,17 +153,15 @@ var Database = class extends import_node_events.EventEmitter {
     Object.keys(where).forEach((key) => {
       if (key !== "OR") {
         const condition = where[key];
-        const alias = typeof condition === "object" && "alias" in condition ? condition.alias : void 0;
         const value = typeof condition === "object" && "value" in condition ? condition.value : condition;
-        processCondition(key, value, andConditions, alias);
+        processCondition(key, value, andConditions, mainTableAlias);
       }
     });
     if (where.OR) {
       Object.keys(where.OR).forEach((key) => {
         const condition = where.OR[key];
-        const alias = typeof condition === "object" && "alias" in condition ? condition.alias : void 0;
         const value = typeof condition === "object" && "value" in condition ? condition.value : condition;
-        processCondition(key, value, orConditions, alias);
+        processCondition(key, value, orConditions, mainTableAlias);
       });
     }
     let clause = "";
@@ -250,6 +248,7 @@ var Database = class extends import_node_events.EventEmitter {
   }
   async findMany({
     table,
+    alias,
     orderBy,
     select,
     where,
@@ -260,23 +259,35 @@ var Database = class extends import_node_events.EventEmitter {
     let query_aux = "";
     const selectedFields = [];
     const existingAliases = /* @__PURE__ */ new Set();
-    const mainTableAlias = this.createAlias(table, existingAliases);
+    const mainTableAlias = alias || this.createAlias(table, existingAliases);
+    if (alias) {
+      existingAliases.add(alias);
+    }
     if (select && Object.keys(select).length > 0) {
       selectedFields.push(
-        ...Object.keys(select).filter((key) => select[key] === true).map((key) => `${mainTableAlias}.${key}`)
+        ...Object.keys(select).filter((key) => select[key] === true).map((key) => {
+          if (!key.includes(".")) {
+            return `${mainTableAlias}.${key}`;
+          }
+          const slSplit = key.split(".");
+          const slAlias = slSplit[0];
+          if (slAlias !== mainTableAlias) {
+            return `${key} AS ${slAlias}_${slSplit.at(-1)}`;
+          }
+          return key;
+        })
       );
     } else {
       selectedFields.push(`${mainTableAlias}.*`);
     }
     if (joins && joins.length > 0) {
       for (const join3 of joins) {
-        const joinAlias = this.createAlias(join3.table, existingAliases);
+        const joinAlias = join3.alias || this.createAlias(join3.table, existingAliases);
+        if (join3.alias) {
+          existingAliases.add(join3.alias);
+        }
         const joinType = join3.type || "INNER";
-        if (join3.select && Object.keys(join3.select).length > 0) {
-          selectedFields.push(
-            ...Object.keys(join3.select).filter((key) => join3.select[key] === true).map((key) => `${joinAlias}.${key} AS ${joinAlias}_${key}`)
-          );
-        } else {
+        if (!select) {
           const joinColumns = await this.query(
             "SELECT column_name FROM information_schema.columns WHERE table_name = $1",
             [join3.table]
@@ -292,10 +303,15 @@ var Database = class extends import_node_events.EventEmitter {
       }
     }
     query = `SELECT ${selectedFields.join(", ")} FROM ${table} AS ${mainTableAlias} ${query_aux}`;
-    const { clause: whereClause, values: whereValues } = this.buildWhereClause(where);
+    const { clause: whereClause, values: whereValues } = this.buildWhereClause(
+      where,
+      mainTableAlias
+    );
     query += whereClause;
     if (orderBy && Object.keys(orderBy).length > 0) {
-      const ordering = Object.keys(orderBy).map((key) => `${mainTableAlias}.${key} ${orderBy[key]}`).join(", ");
+      const ordering = Object.keys(orderBy).map(
+        (key) => !key.includes(".") ? `${mainTableAlias}.${key} ${orderBy[key]}` : `${key} ${orderBy[key]}`
+      ).join(", ");
       query += ` ORDER BY ${ordering}`;
     }
     if (limit) {

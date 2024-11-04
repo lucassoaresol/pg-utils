@@ -101,7 +101,10 @@ class Database extends EventEmitter {
     return array.map((item) => this.mapNullToUndefined(item));
   }
 
-  private buildWhereClause(where?: WhereClause): {
+  private buildWhereClause(
+    where?: WhereClause,
+    mainTableAlias?: string,
+  ): {
     clause: string;
     values: any[];
   } {
@@ -117,7 +120,7 @@ class Database extends EventEmitter {
       conditionsArray: string[],
       alias?: string,
     ) => {
-      const column = alias ? `${alias}.${key}` : key;
+      const column = alias && !key.includes('.') ? `${alias}.${key}` : key;
 
       if (condition === null || condition === undefined) {
         conditionsArray.push(`${column} IS NULL`);
@@ -166,30 +169,22 @@ class Database extends EventEmitter {
     Object.keys(where).forEach((key) => {
       if (key !== 'OR') {
         const condition = where[key];
-        const alias =
-          typeof condition === 'object' && 'alias' in condition
-            ? condition.alias
-            : undefined;
         const value =
           typeof condition === 'object' && 'value' in condition
             ? condition.value
             : condition;
-        processCondition(key, value, andConditions, alias);
+        processCondition(key, value, andConditions, mainTableAlias);
       }
     });
 
     if (where.OR) {
       Object.keys(where.OR).forEach((key) => {
         const condition = where.OR![key];
-        const alias =
-          typeof condition === 'object' && 'alias' in condition
-            ? condition.alias
-            : undefined;
         const value =
           typeof condition === 'object' && 'value' in condition
             ? condition.value
             : condition;
-        processCondition(key, value, orConditions, alias);
+        processCondition(key, value, orConditions, mainTableAlias);
       });
     }
 
@@ -249,7 +244,7 @@ class Database extends EventEmitter {
   }: {
     table: string;
     dataDict: IDataDict;
-    select?: SelectFields<T>;
+    select?: SelectFields;
   }): Promise<T | void> {
     const columns = Object.keys(dataDict).filter((col) => dataDict[col] !== undefined);
     const values = columns.map((col) => dataDict[col]);
@@ -258,7 +253,7 @@ class Database extends EventEmitter {
     let returningClause = '';
     if (select && Object.keys(select).length > 0) {
       const selectedFields = Object.keys(select)
-        .filter((key) => select[key as keyof T])
+        .filter((key) => select[key])
         .join(', ');
 
       if (selectedFields.length > 0) {
@@ -301,24 +296,39 @@ class Database extends EventEmitter {
 
   public async findMany<T>({
     table,
+    alias,
     orderBy,
     select,
     where,
     joins,
     limit,
-  }: SearchParams<T>): Promise<T[]> {
+  }: SearchParams): Promise<T[]> {
     let query: string = '';
     let query_aux: string = '';
     const selectedFields: string[] = [];
     const existingAliases = new Set<string>();
 
-    const mainTableAlias = this.createAlias(table, existingAliases);
+    const mainTableAlias = alias || this.createAlias(table, existingAliases);
+
+    if (alias) {
+      existingAliases.add(alias);
+    }
 
     if (select && Object.keys(select).length > 0) {
       selectedFields.push(
         ...Object.keys(select)
-          .filter((key) => select[key as keyof T] === true)
-          .map((key) => `${mainTableAlias}.${key}`),
+          .filter((key) => select[key] === true)
+          .map((key) => {
+            if (!key.includes('.')) {
+              return `${mainTableAlias}.${key}`;
+            }
+            const slSplit = key.split('.');
+            const slAlias = slSplit[0];
+            if (slAlias !== mainTableAlias) {
+              return `${key} AS ${slAlias}_${slSplit.at(-1)}`;
+            }
+            return key;
+          }),
       );
     } else {
       selectedFields.push(`${mainTableAlias}.*`);
@@ -326,16 +336,15 @@ class Database extends EventEmitter {
 
     if (joins && joins.length > 0) {
       for (const join of joins) {
-        const joinAlias = this.createAlias(join.table, existingAliases);
+        const joinAlias = join.alias || this.createAlias(join.table, existingAliases);
+
+        if (join.alias) {
+          existingAliases.add(join.alias);
+        }
+
         const joinType = join.type || 'INNER';
 
-        if (join.select && Object.keys(join.select).length > 0) {
-          selectedFields.push(
-            ...Object.keys(join.select)
-              .filter((key) => join.select![key as keyof T] === true)
-              .map((key) => `${joinAlias}.${key} AS ${joinAlias}_${key}`),
-          );
-        } else {
+        if (!select) {
           const joinColumns = await this.query(
             'SELECT column_name FROM information_schema.columns WHERE table_name = $1',
             [join.table],
@@ -359,12 +368,19 @@ class Database extends EventEmitter {
 
     query = `SELECT ${selectedFields.join(', ')} FROM ${table} AS ${mainTableAlias} ${query_aux}`;
 
-    const { clause: whereClause, values: whereValues } = this.buildWhereClause(where);
+    const { clause: whereClause, values: whereValues } = this.buildWhereClause(
+      where,
+      mainTableAlias,
+    );
     query += whereClause;
 
     if (orderBy && Object.keys(orderBy).length > 0) {
       const ordering = Object.keys(orderBy)
-        .map((key) => `${mainTableAlias}.${key} ${orderBy[key as keyof T]}`)
+        .map((key) =>
+          !key.includes('.')
+            ? `${mainTableAlias}.${key} ${orderBy[key]}`
+            : `${key} ${orderBy[key]}`,
+        )
         .join(', ');
 
       query += ` ORDER BY ${ordering}`;
@@ -383,7 +399,7 @@ class Database extends EventEmitter {
     return cleanedResult as T[];
   }
 
-  public async findFirst<T>(params: SearchParams<T>): Promise<T | null> {
+  public async findFirst<T>(params: SearchParams): Promise<T | null> {
     const result = await this.findMany<T>({ ...params, limit: 1 });
 
     return result.length > 0 ? result[0] : null;

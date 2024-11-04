@@ -14,30 +14,29 @@ export type WhereCondition =
   | { value: any; mode: 'not' }
   | { lt?: any; lte?: any; gt?: any; gte?: any };
 
-export type WhereField = any | { value: WhereCondition; alias: string };
-
 export type WhereClause = {
-  [key: string]: WhereField;
+  [key: string]: WhereCondition;
 } & {
   OR?: WhereClause;
 };
 
-export type SelectFields<T> = {
-  [K in keyof T]?: boolean;
+export type SelectFields = {
+  [key: string]: boolean;
 };
 
-export type JoinParams<T> = {
+export type JoinParams = {
   table: string;
+  alias?: string;
   on: { [key: string]: string };
   type?: 'INNER' | 'LEFT' | 'RIGHT';
-  select?: SelectFields<T>;
 };
 
-export type SearchParams<T> = {
+export type SearchParams = {
   table: string;
+  alias?: string;
   where?: WhereClause & { OR?: WhereClause };
-  orderBy?: { [K in keyof T]?: 'ASC' | 'DESC' };
-  select?: SelectFields<T>;
-  joins?: JoinParams<any>[];
+  orderBy?: { [key: string]: 'ASC' | 'DESC' };
+  select?: SelectFields;
+  joins?: JoinParams[];
   limit?: number;
 };
