@@ -6,6 +6,7 @@ import { resolve } from 'node:path';
 import { Command } from 'commander';
 
 import ClientsManager from './clientsManager';
+import { generateDbDiagramFile } from './diagramGenerator';
 import { IClient } from './IClient';
 import MigrationCreate from './migrationCreate';
 import MigrationManager from './migrationManager';
@@ -234,6 +235,27 @@ program
       }
     }
     process.exit(0);
+  });
+
+program
+  .command('diagram')
+  .description(
+    'Gera um diagrama do banco de dados com base nas migrações e salva no formato dbdiagram.io',
+  )
+  .option(
+    '-o, --output <file>',
+    'Caminho do arquivo de saída do diagrama (padrão: dbdiagram.txt)',
+    'dbdiagram.txt',
+  )
+  .action(async (options) => {
+    const outputFile = resolve(options.output);
+    options.output || resolve('dbdiagram.txt');
+    try {
+      await generateDbDiagramFile(migrationsDir, outputFile);
+      console.log(`Diagrama gerado com sucesso no arquivo: ${outputFile}`);
+    } catch (error: any) {
+      console.error('Erro ao gerar o diagrama:', error.message);
+    }
   });
 
 program.parse();

@@ -24,8 +24,8 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 
 // src/cli.ts
-var import_promises4 = require("fs/promises");
-var import_node_path4 = require("path");
+var import_promises5 = require("fs/promises");
+var import_node_path5 = require("path");
 var import_commander = require("commander");
 
 // src/clientsManager.ts
@@ -283,16 +283,16 @@ var Database = class extends import_node_events.EventEmitter {
       selectedFields.push(`${mainTableAlias}.*`);
     }
     if (joins && joins.length > 0) {
-      for (const join3 of joins) {
-        const joinAlias = join3.alias || this.createAlias(join3.table, existingAliases);
-        if (join3.alias) {
-          existingAliases.add(join3.alias);
+      for (const join4 of joins) {
+        const joinAlias = join4.alias || this.createAlias(join4.table, existingAliases);
+        if (join4.alias) {
+          existingAliases.add(join4.alias);
         }
-        const joinType = join3.type || "INNER";
+        const joinType = join4.type || "INNER";
         if (!select) {
           const joinColumns = await this.query(
             "SELECT column_name FROM information_schema.columns WHERE table_name = $1",
-            [join3.table]
+            [join4.table]
           );
           selectedFields.push(
             ...joinColumns.map(
@@ -300,8 +300,8 @@ var Database = class extends import_node_events.EventEmitter {
             )
           );
         }
-        const joinConditions = Object.keys(join3.on).map((key) => `${mainTableAlias}.${key} = ${joinAlias}.${join3.on[key]}`).join(" AND ");
-        query_aux += ` ${joinType} JOIN ${join3.table} AS ${joinAlias} ON ${joinConditions}`;
+        const joinConditions = Object.keys(join4.on).map((key) => `${mainTableAlias}.${key} = ${joinAlias}.${join4.on[key]}`).join(" AND ");
+        query_aux += ` ${joinType} JOIN ${join4.table} AS ${joinAlias} ON ${joinConditions}`;
       }
     }
     query = `SELECT ${selectedFields.join(", ")} FROM ${table} AS ${mainTableAlias} ${query_aux}`;
@@ -528,9 +528,102 @@ var ClientsManager = class _ClientsManager {
 };
 var clientsManager_default = ClientsManager;
 
-// src/migrationCreate.ts
+// src/diagramGenerator.ts
 var import_promises3 = require("fs/promises");
 var import_node_path3 = require("path");
+async function getAllFilesInDirectory(directory) {
+  let files = [];
+  const items = await (0, import_promises3.readdir)(directory, { withFileTypes: true });
+  for (const item of items) {
+    const fullPath = (0, import_node_path3.join)(directory, item.name);
+    if (item.isDirectory()) {
+      const subFiles = await getAllFilesInDirectory(fullPath);
+      files = files.concat(subFiles);
+    } else if (item.isFile()) {
+      files.push(fullPath);
+    }
+  }
+  return files;
+}
+function formatColumnConstraints(constraints) {
+  let constraintElements = constraints.replace(/\bNOT NULL\b/g, "NOT NULL").replace(/\bPRIMARY KEY\b/g, "PK").replace(/\bUNIQUE\b/g, "UNIQUE").replace(/\bDEFAULT\b/g, "DEFAULT:").replace("CURRENT_TIMESTAMP", '"CURRENT_TIMESTAMP"').split(/\s+/);
+  let formattedConstraints = Array.from(new Set(constraintElements)).join(", ");
+  formattedConstraints = formattedConstraints.replace("NOT,", "NOT").replace("DEFAULT:,", "DEFAULT:");
+  return `[${formattedConstraints}]`;
+}
+function parseSQLToDbDiagramFormat(fileContent) {
+  const createTableRegex = /CREATE TABLE "([\w]+)" \(([\s\S]*?)\);/g;
+  let match;
+  let result = "";
+  let referencesSection = "";
+  while ((match = createTableRegex.exec(fileContent)) !== null) {
+    const tableName = match[1];
+    let indexes = "";
+    const columnsDefinitions = match[2].trim().split(",\n").map((line) => {
+      line = line.trim();
+      if (line.includes("CONSTRAINT") && line.includes("_pkey")) {
+        const pkMatch = line.match(
+          /CONSTRAINT "([\w]+)" PRIMARY KEY \(([\w",\s]+)\)/
+        );
+        if (pkMatch) {
+          const pkColumns = pkMatch[2].replace(/["\s]/g, "").split(",").join(", ");
+          indexes += `  indexes {
+    (${pkColumns}) [pk]
+  }
+`;
+        }
+        return "";
+      }
+      if (line.includes("CONSTRAINT") && line.includes("_fkey")) {
+        const fkMatch = line.match(
+          /CONSTRAINT "([\w]+)" FOREIGN KEY \("([\w]+)"\) REFERENCES "([\w]+)" \("([\w]+)"\)( ON DELETE CASCADE| ON UPDATE CASCADE)*/g
+        );
+        if (fkMatch) {
+          const [, columnName2, refTable, refColumn] = fkMatch[0].match(
+            /FOREIGN KEY \("([\w]+)"\) REFERENCES "([\w]+)" \("([\w]+)"\)/
+          ) || [];
+          if (columnName2 && refTable && refColumn) {
+            referencesSection += `Ref: ${tableName}.${columnName2} > ${refTable}.${refColumn}
+`;
+          }
+        }
+        return "";
+      }
+      const [columnName, columnType, ...rest] = line.split(/\s+/);
+      const formattedColumnName = columnName.replace(/["]/g, "");
+      const formattedColumnType = columnType.replace(/["]/g, "");
+      const constraints = formatColumnConstraints(rest.join(" ").replace(/["]/g, ""));
+      return `  "${formattedColumnName}" ${formattedColumnType} ${constraints}`;
+    }).filter(Boolean).join("\n");
+    result += `Table ${tableName} {
+${columnsDefinitions}
+${indexes}}
+
+`;
+  }
+  return referencesSection ? `${result.trim()}
+
+${referencesSection.trim()}` : result.trim();
+}
+async function generateDbDiagramFile(migrationsDirectoryPath, diagramOutputFile) {
+  try {
+    const migrationFiles = await getAllFilesInDirectory(migrationsDirectoryPath);
+    const fileContents = await Promise.all(
+      migrationFiles.map((filePath) => (0, import_promises3.readFile)(filePath, "utf-8"))
+    );
+    const dbDiagramContent = fileContents.map((fileContent) => parseSQLToDbDiagramFormat(fileContent)).filter(Boolean).join("\n\n");
+    await (0, import_promises3.writeFile)(diagramOutputFile, dbDiagramContent.trim());
+    console.log(
+      `Arquivo ${diagramOutputFile} gerado com sucesso no formato dbdiagram.io!`
+    );
+  } catch (error) {
+    console.error("Erro ao gerar o arquivo dbdiagram:", error);
+  }
+}
+
+// src/migrationCreate.ts
+var import_promises4 = require("fs/promises");
+var import_node_path4 = require("path");
 var MigrationCreate = class {
   constructor(migrationsPath) {
     this.migrationsPath = migrationsPath;
@@ -538,13 +631,13 @@ var MigrationCreate = class {
   async createMigrationFile(name) {
     const timestamp = (/* @__PURE__ */ new Date()).toISOString().replace(/[-:T.Z]/g, "");
     const fileName = `${timestamp}_${name.replace(/\s+/g, "_")}.sql`;
-    const filePath = (0, import_node_path3.join)(this.migrationsPath, fileName);
+    const filePath = (0, import_node_path4.join)(this.migrationsPath, fileName);
     const fileContent = `-- up
 
 -- down
 `;
     try {
-      await (0, import_promises3.writeFile)(filePath, fileContent);
+      await (0, import_promises4.writeFile)(filePath, fileContent);
       console.log(`Migra\xE7\xE3o criada com sucesso: ${filePath}`);
     } catch (err) {
       console.error("Erro ao criar a migra\xE7\xE3o:", err);
@@ -555,9 +648,9 @@ var migrationCreate_default = MigrationCreate;
 
 // src/cli.ts
 var program = new import_commander.Command();
-var migrationsDir = (0, import_node_path4.resolve)("migrations");
-var configFilePath = (0, import_node_path4.resolve)("pg-utils.json");
-var gitignorePath = (0, import_node_path4.resolve)(".gitignore");
+var migrationsDir = (0, import_node_path5.resolve)("migrations");
+var configFilePath = (0, import_node_path5.resolve)("pg-utils.json");
+var gitignorePath = (0, import_node_path5.resolve)(".gitignore");
 async function handleMigration(dbClient, options) {
   try {
     if (options.down) {
@@ -576,7 +669,7 @@ program.command("init").description(
   "Inicializa o projeto criando o diret\xF3rio de migra\xE7\xF5es e o arquivo de configura\xE7\xE3o pg-utils.json, al\xE9m de adicionar o arquivo de configura\xE7\xE3o ao .gitignore."
 ).action(async () => {
   try {
-    await (0, import_promises4.mkdir)(migrationsDir, { recursive: true });
+    await (0, import_promises5.mkdir)(migrationsDir, { recursive: true });
     console.log(`Diret\xF3rio "${migrationsDir}" criado com sucesso.`);
     const configContent = [
       {
@@ -601,10 +694,10 @@ program.command("init").description(
       }
     ];
     try {
-      await (0, import_promises4.access)(configFilePath);
+      await (0, import_promises5.access)(configFilePath);
       console.log(`Arquivo "${configFilePath}" j\xE1 existe.`);
     } catch {
-      await (0, import_promises4.writeFile)(
+      await (0, import_promises5.writeFile)(
         configFilePath,
         JSON.stringify(configContent, null, 2),
         "utf-8"
@@ -612,16 +705,16 @@ program.command("init").description(
       console.log(`Arquivo de configura\xE7\xE3o "${configFilePath}" criado com sucesso.`);
     }
     try {
-      await (0, import_promises4.access)(gitignorePath);
-      const gitignoreContent = await (0, import_promises4.readFile)(gitignorePath, "utf-8");
+      await (0, import_promises5.access)(gitignorePath);
+      const gitignoreContent = await (0, import_promises5.readFile)(gitignorePath, "utf-8");
       if (!gitignoreContent.includes("pg-utils.json")) {
-        await (0, import_promises4.appendFile)(gitignorePath, "pg-utils.json\n");
+        await (0, import_promises5.appendFile)(gitignorePath, "pg-utils.json\n");
         console.log(`Arquivo "${configFilePath}" adicionado ao .gitignore.`);
       } else {
         console.log(`"${configFilePath}" j\xE1 est\xE1 no .gitignore.`);
       }
     } catch {
-      await (0, import_promises4.writeFile)(gitignorePath, "pg-utils.json\n", "utf-8");
+      await (0, import_promises5.writeFile)(gitignorePath, "pg-utils.json\n", "utf-8");
       console.log(`Arquivo ".gitignore" criado com "${configFilePath}".`);
     }
   } catch (error) {
@@ -640,8 +733,8 @@ program.command("add").description("Adiciona um novo cliente ao arquivo de confi
     manageMigrations: options.manageMigrations || false
   };
   try {
-    await (0, import_promises4.access)(configFilePath);
-    const configFileContent = await (0, import_promises4.readFile)(configFilePath, "utf-8");
+    await (0, import_promises5.access)(configFilePath);
+    const configFileContent = await (0, import_promises5.readFile)(configFilePath, "utf-8");
     const config = JSON.parse(configFileContent);
     const idExists = config.some((client) => client.id === newClientConfig.id);
     if (idExists) {
@@ -649,7 +742,7 @@ program.command("add").description("Adiciona um novo cliente ao arquivo de confi
       process.exit(1);
     }
     config.push(newClientConfig);
-    await (0, import_promises4.writeFile)(configFilePath, JSON.stringify(config, null, 2), "utf-8");
+    await (0, import_promises5.writeFile)(configFilePath, JSON.stringify(config, null, 2), "utf-8");
     console.log(`Cliente "${newClientConfig.id}" adicionado com sucesso.`);
   } catch (error) {
     if (error.code === "ENOENT") {
@@ -733,5 +826,21 @@ program.command("migrate").description("Gerencia as migra\xE7\xF5es do banco de 
     }
   }
   process.exit(0);
+});
+program.command("diagram").description(
+  "Gera um diagrama do banco de dados com base nas migra\xE7\xF5es e salva no formato dbdiagram.io"
+).option(
+  "-o, --output <file>",
+  "Caminho do arquivo de sa\xEDda do diagrama (padr\xE3o: dbdiagram.txt)",
+  "dbdiagram.txt"
+).action(async (options) => {
+  const outputFile = (0, import_node_path5.resolve)(options.output);
+  options.output || (0, import_node_path5.resolve)("dbdiagram.txt");
+  try {
+    await generateDbDiagramFile(migrationsDir, outputFile);
+    console.log(`Diagrama gerado com sucesso no arquivo: ${outputFile}`);
+  } catch (error) {
+    console.error("Erro ao gerar o diagrama:", error.message);
+  }
 });
 program.parse();
