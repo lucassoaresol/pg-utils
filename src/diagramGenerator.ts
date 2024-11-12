@@ -19,20 +19,35 @@ async function getAllFilesInDirectory(directory: string): Promise<string[]> {
 
 function formatColumnConstraints(constraints: string): string {
   let constraintElements = constraints
-    .replace(/\bNOT NULL\b/g, 'NOT NULL')
     .replace(/\bPRIMARY KEY\b/g, 'PK')
-    .replace(/\bUNIQUE\b/g, 'UNIQUE')
     .replace(/\bDEFAULT\b/g, 'DEFAULT:')
-    .replace('CURRENT_TIMESTAMP', '"CURRENT_TIMESTAMP"')
     .split(/\s+/);
 
-  // Remove duplicatas e formata
-  let formattedConstraints = Array.from(new Set(constraintElements)).join(', ');
+  let formattedConstraints = constraintElements.join(', ');
   formattedConstraints = formattedConstraints
     .replace('NOT,', 'NOT')
     .replace('DEFAULT:,', 'DEFAULT:');
 
+  formattedConstraints = formattedConstraints.replace(
+    /DEFAULT:\s?([^\s,]+)/,
+    'DEFAULT: "$1"',
+  );
+
   return `[${formattedConstraints}]`;
+}
+
+function parseForeignKeyReference(line: string, tableName: string): string {
+  const fkMatch = line.match(
+    /CONSTRAINT "([\w]+)" FOREIGN KEY \("([\w]+)"\) REFERENCES "([\w]+)" \("([\w]+)"\)( ON DELETE (CASCADE|SET NULL|RESTRICT|NO ACTION))?( ON UPDATE (CASCADE|SET NULL|RESTRICT|NO ACTION))?/,
+  );
+
+  if (fkMatch) {
+    const [, , columnName, refTable, refColumn, , deleteAction, , updateAction] =
+      fkMatch;
+
+    return `Ref: ${tableName}.${columnName} > ${refTable}.${refColumn} [DELETE: ${deleteAction}, UPDATE: ${updateAction}]\n`;
+  }
+  return '';
 }
 
 function parseSQLToDbDiagramFormat(fileContent: string): string {
@@ -63,19 +78,7 @@ function parseSQLToDbDiagramFormat(fileContent: string): string {
         }
 
         if (line.includes('CONSTRAINT') && line.includes('_fkey')) {
-          const fkMatch = line.match(
-            /CONSTRAINT "([\w]+)" FOREIGN KEY \("([\w]+)"\) REFERENCES "([\w]+)" \("([\w]+)"\)( ON DELETE CASCADE| ON UPDATE CASCADE)*/g,
-          );
-          if (fkMatch) {
-            const [, columnName, refTable, refColumn] =
-              fkMatch[0].match(
-                /FOREIGN KEY \("([\w]+)"\) REFERENCES "([\w]+)" \("([\w]+)"\)/,
-              ) || [];
-
-            if (columnName && refTable && refColumn) {
-              referencesSection += `Ref: ${tableName}.${columnName} > ${refTable}.${refColumn}\n`;
-            }
-          }
+          referencesSection += parseForeignKeyReference(line, tableName);
           return '';
         }
 
