@@ -290,10 +290,12 @@ var Database = class extends import_node_events.EventEmitter {
         }
         const joinType = join4.type || "INNER";
         if (!select) {
-          const joinColumns = await this.query(
-            "SELECT column_name FROM information_schema.columns WHERE table_name = $1",
-            [join4.table]
-          );
+          const joinColumns = await this.findMany({
+            table: "information_schema.columns",
+            alias: "i",
+            where: { table_name: join4.table },
+            select: { column_name: true }
+          });
           selectedFields.push(
             ...joinColumns.map(
               (column) => `${joinAlias}.${column.column_name} AS ${joinAlias}_${column.column_name}`

@@ -350,14 +350,16 @@ class Database extends EventEmitter {
         const joinType = join.type || 'INNER';
 
         if (!select) {
-          const joinColumns = await this.query(
-            'SELECT column_name FROM information_schema.columns WHERE table_name = $1',
-            [join.table],
-          );
+          const joinColumns = await this.findMany<{ column_name: string }>({
+            table: 'information_schema.columns',
+            alias: 'i',
+            where: { table_name: join.table },
+            select: { column_name: true },
+          });
 
           selectedFields.push(
             ...joinColumns.map(
-              (column: { column_name: string }) =>
+              (column) =>
                 `${joinAlias}.${column.column_name} AS ${joinAlias}_${column.column_name}`,
             ),
           );
