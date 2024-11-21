@@ -155,15 +155,13 @@ var Database = class extends import_node_events.EventEmitter {
     Object.keys(where).forEach((key) => {
       if (key !== "OR") {
         const condition = where[key];
-        const value = typeof condition === "object" && "value" in condition ? condition.value : condition;
-        processCondition(key, value, andConditions, mainTableAlias);
+        processCondition(key, condition, andConditions, mainTableAlias);
       }
     });
     if (where.OR) {
       Object.keys(where.OR).forEach((key) => {
         const condition = where.OR[key];
-        const value = typeof condition === "object" && "value" in condition ? condition.value : condition;
-        processCondition(key, value, orConditions, mainTableAlias);
+        processCondition(key, condition, orConditions, mainTableAlias);
       });
     }
     let clause = "";
@@ -304,7 +302,10 @@ var Database = class extends import_node_events.EventEmitter {
             )
           );
         }
-        const joinConditions = Object.keys(join2.on).map((key) => `${mainTableAlias}.${key} = ${joinAlias}.${join2.on[key]}`).join(" AND ");
+        const joinConditions = Object.keys(join2.on).map((key) => {
+          const column = !key.includes(".") ? `${mainTableAlias}.${key}` : key;
+          return `${column} = ${joinAlias}.${join2.on[key]}`;
+        }).join(" AND ");
         query_aux += ` ${joinType} JOIN ${join2.table} AS ${joinAlias} ON ${joinConditions}`;
       }
     }

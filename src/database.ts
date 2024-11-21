@@ -170,22 +170,14 @@ class Database extends EventEmitter {
     Object.keys(where).forEach((key) => {
       if (key !== 'OR') {
         const condition = where[key];
-        const value =
-          typeof condition === 'object' && 'value' in condition
-            ? condition.value
-            : condition;
-        processCondition(key, value, andConditions, mainTableAlias);
+        processCondition(key, condition, andConditions, mainTableAlias);
       }
     });
 
     if (where.OR) {
       Object.keys(where.OR).forEach((key) => {
         const condition = where.OR![key];
-        const value =
-          typeof condition === 'object' && 'value' in condition
-            ? condition.value
-            : condition;
-        processCondition(key, value, orConditions, mainTableAlias);
+        processCondition(key, condition, orConditions, mainTableAlias);
       });
     }
 
@@ -366,7 +358,10 @@ class Database extends EventEmitter {
         }
 
         const joinConditions = Object.keys(join.on)
-          .map((key) => `${mainTableAlias}.${key} = ${joinAlias}.${join.on[key]}`)
+          .map((key) => {
+            const column = !key.includes('.') ? `${mainTableAlias}.${key}` : key;
+            return `${column} = ${joinAlias}.${join.on[key]}`;
+          })
           .join(' AND ');
 
         query_aux += ` ${joinType} JOIN ${join.table} AS ${joinAlias} ON ${joinConditions}`;
