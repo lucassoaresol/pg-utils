@@ -12,6 +12,7 @@ export type PoolType = InstanceType<typeof Pool>;
 export type WhereCondition =
   | any
   | { value: any; mode: 'not' }
+  | { value: any; mode: 'ilike' }
   | { lt?: any; lte?: any; gt?: any; gte?: any };
 
 export type WhereClause = {

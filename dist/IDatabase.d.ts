@@ -11,6 +11,9 @@ type WhereCondition = any | {
     value: any;
     mode: 'not';
 } | {
+    value: any;
+    mode: 'ilike';
+} | {
     lt?: any;
     lte?: any;
     gt?: any;

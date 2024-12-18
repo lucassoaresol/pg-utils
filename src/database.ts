@@ -134,6 +134,9 @@ class Database extends EventEmitter {
               conditionsArray.push(`${column} != $${whereValues.length + 1}`);
               whereValues.push(condition.value);
             }
+          } else if (condition.mode === 'ilike') {
+            conditionsArray.push(`${column} ILIKE $${whereValues.length + 1}`);
+            whereValues.push(`%${condition.value}%`);
           } else {
             conditionsArray.push(`${column} = $${whereValues.length + 1}`);
             whereValues.push(condition.value);
