@@ -277,13 +277,24 @@ var Database = class extends import_node_events.EventEmitter {
     if (select && Object.keys(select).length > 0) {
       selectedFields.push(
         ...Object.keys(select).filter((key) => select[key] === true).map((key) => {
-          if (!key.includes(".")) {
-            return `${mainTableAlias}.${key}`;
-          }
-          const slSplit = key.split(".");
-          const slAlias = slSplit[0];
-          if (slAlias !== mainTableAlias) {
-            return `${key} AS ${slAlias}_${slSplit.at(-1)}`;
+          if (key.includes(" AS ")) {
+            const keySplit = key.split(" AS ");
+            const originalKey = keySplit[0];
+            const keyAlias = keySplit.at(-1);
+            if (!originalKey.includes(".")) {
+              return `${mainTableAlias}.${originalKey} AS ${keyAlias}`;
+            } else {
+              return `${originalKey} AS ${keyAlias}`;
+            }
+          } else {
+            if (!key.includes(".")) {
+              return `${mainTableAlias}.${key}`;
+            }
+            const slSplit = key.split(".");
+            const slAlias = slSplit[0];
+            if (slAlias !== mainTableAlias) {
+              return `${key} AS ${slAlias}_${slSplit.at(-1)}`;
+            }
           }
           return key;
         })
