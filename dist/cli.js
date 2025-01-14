@@ -436,6 +436,22 @@ var MigrationManager = class {
     await this.applyMigration(lastMigration, "down");
     console.log(`Migra\xE7\xE3o ${lastMigration} revertida com sucesso!`);
   }
+  async revertAllMigrations() {
+    const results = await this.db.query(
+      `SELECT name FROM "_migrations" ORDER BY id DESC`
+    );
+    if (results.length === 0) {
+      console.log("Nenhuma migra\xE7\xE3o encontrada para reverter.");
+      return;
+    }
+    console.log("Iniciando a revers\xE3o de todas as migra\xE7\xF5es...");
+    for (const migration of results) {
+      console.log(`Revertendo a migra\xE7\xE3o: ${migration.name}`);
+      await this.applyMigration(migration.name, "down");
+      console.log(`Migra\xE7\xE3o ${migration.name} revertida com sucesso!`);
+    }
+    console.log("Todas as migra\xE7\xF5es foram revertidas com sucesso!");
+  }
 };
 var migrationManager_default = MigrationManager;
 
@@ -675,8 +691,13 @@ var gitignorePath = (0, import_node_path5.resolve)(".gitignore");
 async function handleMigration(dbClient, options) {
   try {
     if (options.down) {
-      console.log("Revertendo a \xFAltima migra\xE7\xE3o aplicada.");
-      await dbClient.revertLastMigration();
+      if (options.all) {
+        console.log("Revertendo todas as migra\xE7\xF5es aplicadas.");
+        await dbClient.revertAllMigrations();
+      } else {
+        console.log("Revertendo a \xFAltima migra\xE7\xE3o aplicada.");
+        await dbClient.revertLastMigration();
+      }
     }
     if (!options.create && !options.down && !options.up) {
       console.log("Aplicando todas as migra\xE7\xF5es pendentes.");
@@ -817,7 +838,7 @@ program.command("create").description(
     console.error("Erro ao executar comando:", err.message);
   }
 });
-program.command("migrate").description("Gerencia as migra\xE7\xF5es do banco de dados").option("-c, --create <name...>", "Cria uma nova migra\xE7\xE3o com o nome fornecido").option("-d, --down", "Reverte a \xFAltima migra\xE7\xE3o aplicada").option("-i, --id <id>", "ID do cliente").action(async (options) => {
+program.command("migrate").description("Gerencia as migra\xE7\xF5es do banco de dados").option("-c, --create <name...>", "Cria uma nova migra\xE7\xE3o com o nome fornecido").option("-d, --down", "Reverte a \xFAltima migra\xE7\xE3o aplicada").option("-a, --all", "Aplica a a\xE7\xE3o (down) para todas as migra\xE7\xF5es").option("-i, --id <id>", "ID do cliente").action(async (options) => {
   if (options.create) {
     const name = options.create.join(" ");
     const migrate = new migrationCreate_default(migrationsDir);

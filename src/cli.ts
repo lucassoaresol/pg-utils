@@ -20,8 +20,13 @@ const gitignorePath = resolve('.gitignore');
 async function handleMigration(dbClient: MigrationManager, options: any) {
   try {
     if (options.down) {
-      console.log('Revertendo a última migração aplicada.');
-      await dbClient.revertLastMigration();
+      if (options.all) {
+        console.log('Revertendo todas as migrações aplicadas.');
+        await dbClient.revertAllMigrations();
+      } else {
+        console.log('Revertendo a última migração aplicada.');
+        await dbClient.revertLastMigration();
+      }
     }
 
     if (!options.create && !options.down && !options.up) {
@@ -199,6 +204,7 @@ program
   .description('Gerencia as migrações do banco de dados')
   .option('-c, --create <name...>', 'Cria uma nova migração com o nome fornecido')
   .option('-d, --down', 'Reverte a última migração aplicada')
+  .option('-a, --all', 'Aplica a ação (down) para todas as migrações')
   .option('-i, --id <id>', 'ID do cliente')
   .action(async (options) => {
     if (options.create) {

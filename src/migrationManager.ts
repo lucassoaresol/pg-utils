@@ -83,6 +83,26 @@ class MigrationManager {
     await this.applyMigration(lastMigration, 'down');
     console.log(`Migração ${lastMigration} revertida com sucesso!`);
   }
+
+  public async revertAllMigrations() {
+    const results = await this.db.query<{ name: string }>(
+      `SELECT name FROM "_migrations" ORDER BY id DESC`,
+    );
+
+    if (results.length === 0) {
+      console.log('Nenhuma migração encontrada para reverter.');
+      return;
+    }
+
+    console.log('Iniciando a reversão de todas as migrações...');
+    for (const migration of results) {
+      console.log(`Revertendo a migração: ${migration.name}`);
+      await this.applyMigration(migration.name, 'down');
+      console.log(`Migração ${migration.name} revertida com sucesso!`);
+    }
+
+    console.log('Todas as migrações foram revertidas com sucesso!');
+  }
 }
 
 export default MigrationManager;

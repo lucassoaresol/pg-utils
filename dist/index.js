@@ -444,6 +444,22 @@ var MigrationManager = class {
     await this.applyMigration(lastMigration, "down");
     console.log(`Migra\xE7\xE3o ${lastMigration} revertida com sucesso!`);
   }
+  async revertAllMigrations() {
+    const results = await this.db.query(
+      `SELECT name FROM "_migrations" ORDER BY id DESC`
+    );
+    if (results.length === 0) {
+      console.log("Nenhuma migra\xE7\xE3o encontrada para reverter.");
+      return;
+    }
+    console.log("Iniciando a revers\xE3o de todas as migra\xE7\xF5es...");
+    for (const migration of results) {
+      console.log(`Revertendo a migra\xE7\xE3o: ${migration.name}`);
+      await this.applyMigration(migration.name, "down");
+      console.log(`Migra\xE7\xE3o ${migration.name} revertida com sucesso!`);
+    }
+    console.log("Todas as migra\xE7\xF5es foram revertidas com sucesso!");
+  }
 };
 var migrationManager_default = MigrationManager;
 
