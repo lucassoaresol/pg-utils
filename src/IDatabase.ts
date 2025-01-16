@@ -35,7 +35,7 @@ export type JoinParams = {
 export type SearchParams = {
   table: string;
   alias?: string;
-  where?: WhereClause & { OR?: WhereClause };
+  where?: WhereClause;
   orderBy?: { [key: string]: 'ASC' | 'DESC' };
   select?: SelectFields;
   joins?: JoinParams[];
