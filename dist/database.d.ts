@@ -29,12 +29,13 @@ declare class Database extends EventEmitter {
         dataDict: IDataDict;
         where?: WhereClause;
     }): Promise<void>;
-    findMany<T>({ table, alias, orderBy, select, where, joins, limit, }: SearchParams): Promise<T[]>;
+    findMany<T>({ table, alias, orderBy, select, where, joins, limit, offset, }: SearchParams): Promise<T[]>;
     findFirst<T>(params: SearchParams): Promise<T | null>;
     deleteFromTable({ table, where, }: {
         table: string;
         where?: WhereClause;
     }): Promise<void>;
+    count({ table, alias, where, joins, }: Omit<SearchParams, 'select' | 'orderBy' | 'limit' | 'offset'>): Promise<number>;
     query<T = any>(queryText: string, params?: any[]): Promise<T[]>;
 }
 

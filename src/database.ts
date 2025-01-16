@@ -302,6 +302,7 @@ class Database extends EventEmitter {
     where,
     joins,
     limit,
+    offset,
   }: SearchParams): Promise<T[]> {
     let query: string = '';
     let query_aux: string = '';
@@ -407,6 +408,10 @@ class Database extends EventEmitter {
       query += ` LIMIT ${limit}`;
     }
 
+    if (offset) {
+      query += ` OFFSET ${offset}`;
+    }
+
     query += ';';
 
     const result = await this.pool.query(query, whereValues);
@@ -432,6 +437,59 @@ class Database extends EventEmitter {
     const { clause: whereClause, values: whereValues } = this.buildWhereClause(where);
     const query = `DELETE FROM ${table}${whereClause};`;
     await this.pool.query(query, whereValues);
+  }
+
+  public async count({
+    table,
+    alias,
+    where,
+    joins,
+  }: Omit<SearchParams, 'select' | 'orderBy' | 'limit' | 'offset'>): Promise<number> {
+    let query: string = '';
+    let query_aux: string = '';
+    const existingAliases = new Set<string>();
+
+    const mainTableAlias = alias || this.createAlias(table, existingAliases);
+
+    if (alias) {
+      existingAliases.add(alias);
+    }
+
+    if (joins && joins.length > 0) {
+      for (const join of joins) {
+        const joinAlias = join.alias || this.createAlias(join.table, existingAliases);
+
+        if (join.alias) {
+          existingAliases.add(join.alias);
+        }
+
+        const joinType = join.type || 'INNER';
+
+        const joinConditions = Object.keys(join.on)
+          .map((key) => {
+            const column = !key.includes('.') ? `${mainTableAlias}.${key}` : key;
+            return `${column} = ${joinAlias}.${join.on[key]}`;
+          })
+          .join(' AND ');
+
+        query_aux += ` ${joinType} JOIN ${join.table} AS ${joinAlias} ON ${joinConditions}`;
+      }
+    }
+
+    query = `SELECT COUNT(*) AS total FROM ${table} AS ${mainTableAlias} ${query_aux}`;
+
+    const { clause: whereClause, values: whereValues } = this.buildWhereClause(
+      where,
+      undefined,
+      mainTableAlias,
+    );
+    query += whereClause;
+
+    query += ';';
+
+    const result = await this.pool.query(query, whereValues);
+
+    return result.rows[0]?.total ? parseInt(result.rows[0].total, 10) : 0;
   }
 
   public async query<T = any>(queryText: string, params: any[] = []): Promise<T[]> {

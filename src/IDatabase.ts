@@ -40,4 +40,5 @@ export type SearchParams = {
   select?: SelectFields;
   joins?: JoinParams[];
   limit?: number;
+  offset?: number;
 };

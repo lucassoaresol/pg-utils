@@ -258,7 +258,8 @@ var Database = class extends import_node_events.EventEmitter {
     select,
     where,
     joins,
-    limit
+    limit,
+    offset
   }) {
     let query = "";
     let query_aux = "";
@@ -339,6 +340,9 @@ var Database = class extends import_node_events.EventEmitter {
     if (limit) {
       query += ` LIMIT ${limit}`;
     }
+    if (offset) {
+      query += ` OFFSET ${offset}`;
+    }
     query += ";";
     const result = await this.pool.query(query, whereValues);
     const cleanedResult = this.mapNullToUndefinedInArray(result.rows);
@@ -355,6 +359,45 @@ var Database = class extends import_node_events.EventEmitter {
     const { clause: whereClause, values: whereValues } = this.buildWhereClause(where);
     const query = `DELETE FROM ${table}${whereClause};`;
     await this.pool.query(query, whereValues);
+  }
+  async count({
+    table,
+    alias,
+    where,
+    joins
+  }) {
+    var _a;
+    let query = "";
+    let query_aux = "";
+    const existingAliases = /* @__PURE__ */ new Set();
+    const mainTableAlias = alias || this.createAlias(table, existingAliases);
+    if (alias) {
+      existingAliases.add(alias);
+    }
+    if (joins && joins.length > 0) {
+      for (const join2 of joins) {
+        const joinAlias = join2.alias || this.createAlias(join2.table, existingAliases);
+        if (join2.alias) {
+          existingAliases.add(join2.alias);
+        }
+        const joinType = join2.type || "INNER";
+        const joinConditions = Object.keys(join2.on).map((key) => {
+          const column = !key.includes(".") ? `${mainTableAlias}.${key}` : key;
+          return `${column} = ${joinAlias}.${join2.on[key]}`;
+        }).join(" AND ");
+        query_aux += ` ${joinType} JOIN ${join2.table} AS ${joinAlias} ON ${joinConditions}`;
+      }
+    }
+    query = `SELECT COUNT(*) AS total FROM ${table} AS ${mainTableAlias} ${query_aux}`;
+    const { clause: whereClause, values: whereValues } = this.buildWhereClause(
+      where,
+      void 0,
+      mainTableAlias
+    );
+    query += whereClause;
+    query += ";";
+    const result = await this.pool.query(query, whereValues);
+    return ((_a = result.rows[0]) == null ? void 0 : _a.total) ? parseInt(result.rows[0].total, 10) : 0;
   }
   async query(queryText, params = []) {
     try {
