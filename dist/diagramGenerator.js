@@ -83,6 +83,17 @@ function parseSQLToDbDiagramFormat(fileContent) {
         }
         return "";
       }
+      if (line.includes("CONSTRAINT") && line.includes("UNIQUE")) {
+        const uniqueMatch = line.match(/CONSTRAINT "([\w]+)" UNIQUE \(([\w",\s]+)\)/);
+        if (uniqueMatch) {
+          const uniqueColumns = uniqueMatch[2].replace(/["\s]/g, "").split(",").join(", ");
+          indexes += `  indexes {
+    (${uniqueColumns}) [unique]
+  }
+`;
+        }
+        return "";
+      }
       if (line.includes("CONSTRAINT") && line.includes("_fkey")) {
         referencesSection += parseForeignKeyReference(line, tableName);
         return "";

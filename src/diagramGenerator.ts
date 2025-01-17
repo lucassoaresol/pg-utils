@@ -77,6 +77,18 @@ function parseSQLToDbDiagramFormat(fileContent: string): string {
           return '';
         }
 
+        if (line.includes('CONSTRAINT') && line.includes('UNIQUE')) {
+          const uniqueMatch = line.match(/CONSTRAINT "([\w]+)" UNIQUE \(([\w",\s]+)\)/);
+          if (uniqueMatch) {
+            const uniqueColumns = uniqueMatch[2]
+              .replace(/["\s]/g, '')
+              .split(',')
+              .join(', ');
+            indexes += `  indexes {\n    (${uniqueColumns}) [unique]\n  }\n`;
+          }
+          return '';
+        }
+
         if (line.includes('CONSTRAINT') && line.includes('_fkey')) {
           referencesSection += parseForeignKeyReference(line, tableName);
           return '';
