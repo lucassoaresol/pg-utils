@@ -428,9 +428,10 @@ var MigrationManager = class {
     `);
   }
   async getAppliedMigrations() {
-    const result = await this.db.query(
-      `SELECT name FROM "_migrations"`
-    );
+    const result = await this.db.findMany({
+      table: "_migrations",
+      select: { name: true }
+    });
     return result.map((row) => row.name);
   }
   async applyMigration(fileName, direction) {
@@ -442,9 +443,15 @@ var MigrationManager = class {
       await this.db.query("BEGIN");
       await this.db.query(sqlToExecute);
       if (direction === "up") {
-        await this.db.query(`INSERT INTO "_migrations" (name) VALUES ($1)`, [fileName]);
+        await this.db.insertIntoTable({
+          table: "_migrations",
+          dataDict: { name: fileName }
+        });
       } else {
-        await this.db.query(`DELETE FROM "_migrations" WHERE name = $1`, [fileName]);
+        await this.db.deleteFromTable({
+          table: "_migrations",
+          where: { name: fileName }
+        });
       }
       await this.db.query("COMMIT");
     } catch (err) {
@@ -466,11 +473,12 @@ var MigrationManager = class {
     console.log("Todas as migra\xE7\xF5es foram aplicadas com sucesso!");
   }
   async revertLastMigration() {
-    var _a;
-    const result = await this.db.query(
-      `SELECT name FROM "_migrations" ORDER BY id DESC LIMIT 1`
-    );
-    const lastMigration = (_a = result[0]) == null ? void 0 : _a.name;
+    const result = await this.db.findFirst({
+      table: "_migrations",
+      select: { name: true },
+      orderBy: { id: "DESC" }
+    });
+    const lastMigration = result == null ? void 0 : result.name;
     if (!lastMigration) {
       console.log("Nenhuma migra\xE7\xE3o encontrada para reverter.");
       return;
@@ -480,9 +488,11 @@ var MigrationManager = class {
     console.log(`Migra\xE7\xE3o ${lastMigration} revertida com sucesso!`);
   }
   async revertAllMigrations() {
-    const results = await this.db.query(
-      `SELECT name FROM "_migrations" ORDER BY id DESC`
-    );
+    const results = await this.db.findMany({
+      table: "_migrations",
+      select: { name: true },
+      orderBy: { id: "DESC" }
+    });
     if (results.length === 0) {
       console.log("Nenhuma migra\xE7\xE3o encontrada para reverter.");
       return;

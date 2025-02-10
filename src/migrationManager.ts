@@ -22,9 +22,10 @@ class MigrationManager {
   }
 
   private async getAppliedMigrations(): Promise<string[]> {
-    const result = await this.db.query<{ name: string }>(
-      `SELECT name FROM "_migrations"`,
-    );
+    const result = await this.db.findMany<{ name: string }>({
+      table: '_migrations',
+      select: { name: true },
+    });
     return result.map((row) => row.name);
   }
 
@@ -40,9 +41,15 @@ class MigrationManager {
       await this.db.query(sqlToExecute);
 
       if (direction === 'up') {
-        await this.db.query(`INSERT INTO "_migrations" (name) VALUES ($1)`, [fileName]);
+        await this.db.insertIntoTable({
+          table: '_migrations',
+          dataDict: { name: fileName },
+        });
       } else {
-        await this.db.query(`DELETE FROM "_migrations" WHERE name = $1`, [fileName]);
+        await this.db.deleteFromTable({
+          table: '_migrations',
+          where: { name: fileName },
+        });
       }
 
       await this.db.query('COMMIT');
@@ -69,10 +76,12 @@ class MigrationManager {
   }
 
   public async revertLastMigration() {
-    const result = await this.db.query<{ name: string }>(
-      `SELECT name FROM "_migrations" ORDER BY id DESC LIMIT 1`,
-    );
-    const lastMigration = result[0]?.name;
+    const result = await this.db.findFirst<{ name: string }>({
+      table: '_migrations',
+      select: { name: true },
+      orderBy: { id: 'DESC' },
+    });
+    const lastMigration = result?.name;
 
     if (!lastMigration) {
       console.log('Nenhuma migração encontrada para reverter.');
@@ -85,9 +94,11 @@ class MigrationManager {
   }
 
   public async revertAllMigrations() {
-    const results = await this.db.query<{ name: string }>(
-      `SELECT name FROM "_migrations" ORDER BY id DESC`,
-    );
+    const results = await this.db.findMany<{ name: string }>({
+      table: '_migrations',
+      select: { name: true },
+      orderBy: { id: 'DESC' },
+    });
 
     if (results.length === 0) {
       console.log('Nenhuma migração encontrada para reverter.');
