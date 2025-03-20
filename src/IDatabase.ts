@@ -41,4 +41,5 @@ export type SearchParams = {
   joins?: JoinParams[];
   limit?: number;
   offset?: number;
+  groupBy?: string[];
 };

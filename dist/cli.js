@@ -257,7 +257,8 @@ var Database = class extends import_node_events.EventEmitter {
     where,
     joins,
     limit,
-    offset
+    offset,
+    groupBy
   }) {
     let query = "";
     let query_aux = "";
@@ -329,6 +330,10 @@ var Database = class extends import_node_events.EventEmitter {
       mainTableAlias
     );
     query += whereClause;
+    if (groupBy && groupBy.length > 0) {
+      const groupByClause = groupBy.map((key) => !key.includes(".") ? `${mainTableAlias}.${key}` : key).join(", ");
+      query += ` GROUP BY ${groupByClause}`;
+    }
     if (orderBy && Object.keys(orderBy).length > 0) {
       const ordering = Object.keys(orderBy).map(
         (key) => !key.includes(".") ? `${mainTableAlias}.${key} ${orderBy[key]}` : `${key} ${orderBy[key]}`

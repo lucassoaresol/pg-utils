@@ -303,6 +303,7 @@ class Database extends EventEmitter {
     joins,
     limit,
     offset,
+    groupBy,
   }: SearchParams): Promise<T[]> {
     let query: string = '';
     let query_aux: string = '';
@@ -392,6 +393,13 @@ class Database extends EventEmitter {
     );
     query += whereClause;
 
+    if (groupBy && groupBy.length > 0) {
+      const groupByClause = groupBy
+        .map((key) => (!key.includes('.') ? `${mainTableAlias}.${key}` : key))
+        .join(', ');
+      query += ` GROUP BY ${groupByClause}`;
+    }
+
     if (orderBy && Object.keys(orderBy).length > 0) {
       const ordering = Object.keys(orderBy)
         .map((key) =>
@@ -444,7 +452,10 @@ class Database extends EventEmitter {
     alias,
     where,
     joins,
-  }: Omit<SearchParams, 'select' | 'orderBy' | 'limit' | 'offset'>): Promise<number> {
+  }: Omit<
+    SearchParams,
+    'select' | 'orderBy' | 'limit' | 'offset' | 'groupBy'
+  >): Promise<number> {
     let query: string = '';
     let query_aux: string = '';
     const existingAliases = new Set<string>();
