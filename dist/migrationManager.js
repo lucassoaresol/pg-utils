@@ -91,7 +91,7 @@ var MigrationManager = class {
       select: { name: true },
       orderBy: { id: "DESC" }
     });
-    const lastMigration = result == null ? void 0 : result.name;
+    const lastMigration = result?.name;
     if (!lastMigration) {
       console.log("Nenhuma migra\xE7\xE3o encontrada para reverter.");
       return;

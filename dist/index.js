@@ -52,17 +52,6 @@ var Database = class extends import_node_events.EventEmitter {
     this.password = password;
     this.port = port;
     this.database = database;
-    this.createAlias = (table, existingAliases) => {
-      const parts = table.split("_");
-      let alias = parts.map((part) => part[0]).join("");
-      let counter = 0;
-      while (existingAliases.has(alias)) {
-        counter++;
-        alias = parts.map((part) => part[0]).join("") + counter;
-      }
-      existingAliases.add(alias);
-      return alias;
-    };
     this.pool = new Pool({
       user: this.user,
       host: this.host,
@@ -78,6 +67,8 @@ var Database = class extends import_node_events.EventEmitter {
       database: this.database
     });
   }
+  pool;
+  listenerClient;
   async listenToEvents(channel) {
     try {
       await this.listenerClient.connect();
@@ -100,6 +91,17 @@ var Database = class extends import_node_events.EventEmitter {
       throw err;
     }
   }
+  createAlias = (table, existingAliases) => {
+    const parts = table.split("_");
+    let alias = parts.map((part) => part[0]).join("");
+    let counter = 0;
+    while (existingAliases.has(alias)) {
+      counter++;
+      alias = parts.map((part) => part[0]).join("") + counter;
+    }
+    existingAliases.add(alias);
+    return alias;
+  };
   mapNullToUndefined(row) {
     const mappedRow = {};
     for (const key in row) {
@@ -122,6 +124,10 @@ var Database = class extends import_node_events.EventEmitter {
       const column = alias && !key.includes(".") ? `${alias}.${key}` : key;
       if (condition === null || condition === void 0) {
         conditionsArray.push(`${column} IS NULL`);
+      } else if (Array.isArray(condition)) {
+        const placeholders = condition.map((_, i) => `$${whereValues.length + i + 1}`).join(", ");
+        conditionsArray.push(`${column} IN (${placeholders})`);
+        whereValues.push(...condition);
       } else if (typeof condition === "object") {
         if ("value" in condition && "mode" in condition) {
           if (condition.mode === "not") {
@@ -377,7 +383,6 @@ var Database = class extends import_node_events.EventEmitter {
     where,
     joins
   }) {
-    var _a;
     let query = "";
     let query_aux = "";
     const existingAliases = /* @__PURE__ */ new Set();
@@ -408,7 +413,7 @@ var Database = class extends import_node_events.EventEmitter {
     query += whereClause;
     query += ";";
     const result = await this.pool.query(query, whereValues);
-    return ((_a = result.rows[0]) == null ? void 0 : _a.total) ? parseInt(result.rows[0].total, 10) : 0;
+    return result.rows[0]?.total ? parseInt(result.rows[0].total, 10) : 0;
   }
   async query(queryText, params = []) {
     try {
@@ -491,7 +496,7 @@ var MigrationManager = class {
       select: { name: true },
       orderBy: { id: "DESC" }
     });
-    const lastMigration = result == null ? void 0 : result.name;
+    const lastMigration = result?.name;
     if (!lastMigration) {
       console.log("Nenhuma migra\xE7\xE3o encontrada para reverter.");
       return;
@@ -540,6 +545,8 @@ var PgUtils = class {
     );
     this.migrations = new migrationManager_default(this.migrationsPath, this.dbInstance);
   }
+  dbInstance;
+  migrations;
   async createAndConnectDatabase() {
     if (!this.manageMigrations) {
       throw new Error(
@@ -577,9 +584,10 @@ var pgUtils_default = PgUtils;
 
 // src/clientsManager.ts
 var ClientsManager = class _ClientsManager {
+  static instance;
+  clientsMap = /* @__PURE__ */ new Map();
+  configFilePath = (0, import_node_path2.resolve)("pg-utils.json");
   constructor() {
-    this.clientsMap = /* @__PURE__ */ new Map();
-    this.configFilePath = (0, import_node_path2.resolve)("pg-utils.json");
   }
   static async getInstance() {
     if (!_ClientsManager.instance) {

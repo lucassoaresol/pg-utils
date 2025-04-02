@@ -125,6 +125,12 @@ class Database extends EventEmitter {
 
       if (condition === null || condition === undefined) {
         conditionsArray.push(`${column} IS NULL`);
+      } else if (Array.isArray(condition)) {
+        const placeholders = condition
+          .map((_, i) => `$${whereValues.length + i + 1}`)
+          .join(', ');
+        conditionsArray.push(`${column} IN (${placeholders})`);
+        whereValues.push(...condition);
       } else if (typeof condition === 'object') {
         if ('value' in condition && 'mode' in condition) {
           if (condition.mode === 'not') {
