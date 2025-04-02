@@ -133,6 +133,10 @@ var Database = class extends import_node_events.EventEmitter {
           if (condition.mode === "not") {
             if (condition.value === null) {
               conditionsArray.push(`${column} IS NOT NULL`);
+            } else if (Array.isArray(condition.value)) {
+              const placeholders = condition.value.map((_, i) => `$${whereValues.length + i + 1}`).join(", ");
+              conditionsArray.push(`${column} NOT IN (${placeholders})`);
+              whereValues.push(...condition.value);
             } else {
               conditionsArray.push(`${column} != $${whereValues.length + 1}`);
               whereValues.push(condition.value);

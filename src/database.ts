@@ -136,6 +136,12 @@ class Database extends EventEmitter {
           if (condition.mode === 'not') {
             if (condition.value === null) {
               conditionsArray.push(`${column} IS NOT NULL`);
+            } else if (Array.isArray(condition.value)) {
+              const placeholders = condition.value
+                .map((_: any, i: number) => `$${whereValues.length + i + 1}`)
+                .join(', ');
+              conditionsArray.push(`${column} NOT IN (${placeholders})`);
+              whereValues.push(...condition.value);
             } else {
               conditionsArray.push(`${column} != $${whereValues.length + 1}`);
               whereValues.push(condition.value);
