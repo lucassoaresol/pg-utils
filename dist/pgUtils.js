@@ -138,6 +138,12 @@ var Database = class extends import_node_events.EventEmitter {
           } else if (condition.mode === "ilike") {
             conditionsArray.push(`${column} ILIKE $${whereValues.length + 1}`);
             whereValues.push(`%${condition.value}%`);
+          } else if (condition.mode === "like") {
+            conditionsArray.push(`${column} LIKE $${whereValues.length + 1}`);
+            whereValues.push(`%${condition.value}%`);
+          } else if (condition.mode === "date") {
+            conditionsArray.push(`DATE(${column}) = $${whereValues.length + 1}`);
+            whereValues.push(`%${condition.value}%`);
           } else {
             conditionsArray.push(`${column} = $${whereValues.length + 1}`);
             whereValues.push(condition.value);
@@ -281,30 +287,33 @@ var Database = class extends import_node_events.EventEmitter {
       existingAliases.add(alias);
     }
     if (select && Object.keys(select).length > 0) {
-      selectedFields.push(
-        ...Object.keys(select).filter((key) => select[key] === true).map((key) => {
-          if (key.includes(" AS ")) {
-            const keySplit = key.split(" AS ");
-            const originalKey = keySplit[0];
-            const keyAlias = keySplit.at(-1);
-            if (!originalKey.includes(".")) {
-              return `${mainTableAlias}.${originalKey} AS ${keyAlias}`;
-            } else {
-              return `${originalKey} AS ${keyAlias}`;
-            }
+      const matchSelect = [];
+      Object.keys(select).filter((key) => select[key] === true).forEach((key) => {
+        if (key.includes(" AS ")) {
+          const keySplit = key.split(" AS ");
+          const originalKey = keySplit[0];
+          const keyAlias = keySplit.at(-1);
+          if (!originalKey.includes(".")) {
+            matchSelect.push(`${mainTableAlias}.${originalKey} AS ${keyAlias}`);
           } else {
-            if (!key.includes(".")) {
-              return `${mainTableAlias}.${key}`;
-            }
-            const slSplit = key.split(".");
-            const slAlias = slSplit[0];
-            if (slAlias !== mainTableAlias) {
-              return `${key} AS ${slAlias}_${slSplit.at(-1)}`;
-            }
+            matchSelect.push(`${originalKey} AS ${keyAlias}`);
           }
-          return key;
-        })
-      );
+        } else if (key.includes("*")) {
+          if (!key.includes(".")) {
+            matchSelect.push(`${mainTableAlias}.${key}`);
+          }
+        } else {
+          if (!key.includes(".")) {
+            matchSelect.push(`${mainTableAlias}.${key}`);
+          }
+          const slSplit = key.split(".");
+          const slAlias = slSplit[0];
+          if (slAlias !== mainTableAlias) {
+            matchSelect.push(`${key} AS ${slAlias}_${slSplit.at(-1)}`);
+          }
+        }
+      });
+      selectedFields.push(...matchSelect);
     } else {
       selectedFields.push(`${mainTableAlias}.*`);
     }
@@ -315,12 +324,37 @@ var Database = class extends import_node_events.EventEmitter {
           existingAliases.add(join2.alias);
         }
         const joinType = join2.type || "INNER";
-        if (!select) {
+        if (select && Object.keys(select).length > 0) {
+          const promisesColumns = [];
+          Object.keys(select).filter((key) => select[key] === true).forEach((key) => {
+            if (key.includes("*")) {
+              const keySplit = key.split(".");
+              const originalKey = keySplit[0];
+              if (originalKey === joinAlias) {
+                promisesColumns.push(
+                  this.findMany({
+                    table: "information_schema.columns",
+                    alias: "i",
+                    where: { "i.table_name": join2.table },
+                    select: { "i.column_name AS column_name": true }
+                  })
+                );
+              }
+            }
+          });
+          const joinColumns = (await Promise.all(promisesColumns)).flat();
+          console.log(joinColumns);
+          selectedFields.push(
+            ...joinColumns.map(
+              (column) => `${joinAlias}.${column.column_name} AS ${joinAlias}_${column.column_name}`
+            )
+          );
+        } else {
           const joinColumns = await this.findMany({
             table: "information_schema.columns",
             alias: "i",
-            where: { table_name: join2.table },
-            select: { column_name: true }
+            where: { "i.table_name": join2.table },
+            select: { "i.column_name AS column_name": true }
           });
           selectedFields.push(
             ...joinColumns.map(
