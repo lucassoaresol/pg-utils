@@ -116,9 +116,93 @@ class Database extends EventEmitter {
     const orConditions: string[] = [];
     const whereValues: any[] = values ? [...values] : [];
 
+    const formatCondition = (expression: string, isNot: boolean) =>
+      isNot ? `NOT (${expression})` : expression;
+
+    const parseSimpleComparison = (
+      column: string,
+      value: any,
+      isNot: boolean,
+      conditionsArray: string[],
+    ) => {
+      if (value === null) {
+        conditionsArray.push(formatCondition(`${column} IS NULL`, isNot));
+      } else if (Array.isArray(value)) {
+        const placeholders = value
+          .map((_, i) => `$${whereValues.length + i + 1}`)
+          .join(', ');
+        conditionsArray.push(formatCondition(`${column} IN (${placeholders})`, isNot));
+        whereValues.push(...value);
+      } else {
+        conditionsArray.push(
+          formatCondition(`${column} = $${whereValues.length + 1}`, isNot),
+        );
+        whereValues.push(value);
+      }
+    };
+
+    const parseModeComparison = (
+      column: string,
+      condition: { mode: string; value: any; is_not?: boolean },
+      conditionsArray: string[],
+    ) => {
+      const { mode, value, is_not: isNot = false } = condition;
+
+      if (mode === 'ilike') {
+        conditionsArray.push(
+          formatCondition(`${column} ILIKE $${whereValues.length + 1}`, isNot),
+        );
+        whereValues.push(`%${value}%`);
+      } else if (mode === 'like') {
+        conditionsArray.push(
+          formatCondition(`${column} LIKE $${whereValues.length + 1}`, isNot),
+        );
+        whereValues.push(`%${value}%`);
+      } else if (mode === 'date') {
+        conditionsArray.push(
+          formatCondition(`DATE(${column}) = $${whereValues.length + 1}`, isNot),
+        );
+        whereValues.push(value);
+      } else {
+        parseSimpleComparison(column, value, isNot, conditionsArray);
+      }
+    };
+
+    const parseRangeOperators = (
+      column: string,
+      condition: { [key: string]: any },
+      conditionsArray: string[],
+    ) => {
+      const operators = {
+        lt: '<',
+        lte: '<=',
+        gt: '>',
+        gte: '>=',
+      };
+
+      for (const [opKey, sqlOp] of Object.entries(operators)) {
+        if (condition[opKey] !== undefined) {
+          const condValue = condition[opKey];
+          const isNot =
+            typeof condValue === 'object' && 'is_not' in condValue
+              ? condValue.is_not
+              : false;
+          const value =
+            typeof condValue === 'object' && 'value' in condValue
+              ? condValue.value
+              : condValue;
+
+          conditionsArray.push(
+            formatCondition(`${column} ${sqlOp} $${whereValues.length + 1}`, isNot),
+          );
+          whereValues.push(value);
+        }
+      }
+    };
+
     const processCondition = (
       key: string,
-      condition: WhereCondition,
+      condition: any,
       conditionsArray: string[],
       alias?: string,
     ) => {
@@ -126,81 +210,30 @@ class Database extends EventEmitter {
 
       if (condition === null || condition === undefined) {
         conditionsArray.push(`${column} IS NULL`);
-      } else if (Array.isArray(condition)) {
-        const placeholders = condition
-          .map((_, i) => `$${whereValues.length + i + 1}`)
-          .join(', ');
-        conditionsArray.push(`${column} IN (${placeholders})`);
-        whereValues.push(...condition);
-      } else if (typeof condition === 'object') {
-        if ('value' in condition && 'mode' in condition) {
-          if (condition.mode === 'not') {
-            if (condition.value === null) {
-              conditionsArray.push(`${column} IS NOT NULL`);
-            } else if (Array.isArray(condition.value)) {
-              const placeholders = condition.value
-                .map((_: any, i: number) => `$${whereValues.length + i + 1}`)
-                .join(', ');
-              conditionsArray.push(`${column} NOT IN (${placeholders})`);
-              whereValues.push(...condition.value);
-            } else {
-              conditionsArray.push(`${column} != $${whereValues.length + 1}`);
-              whereValues.push(condition.value);
-            }
-          } else if (condition.mode === 'ilike') {
-            conditionsArray.push(`${column} ILIKE $${whereValues.length + 1}`);
-            whereValues.push(`%${condition.value}%`);
-          } else if (condition.mode === 'like') {
-            conditionsArray.push(`${column} LIKE $${whereValues.length + 1}`);
-            whereValues.push(`%${condition.value}%`);
-          } else if (condition.mode === 'date') {
-            conditionsArray.push(`DATE(${column}) = $${whereValues.length + 1}`);
-            whereValues.push(`%${condition.value}%`);
-          } else {
-            conditionsArray.push(`${column} = $${whereValues.length + 1}`);
-            whereValues.push(condition.value);
-          }
-        } else if (
-          'lt' in condition ||
-          'lte' in condition ||
-          'gt' in condition ||
-          'gte' in condition
-        ) {
-          if (condition.lt !== undefined) {
-            conditionsArray.push(`${column} < $${whereValues.length + 1}`);
-            whereValues.push(condition.lt);
-          }
-          if (condition.lte !== undefined) {
-            conditionsArray.push(`${column} <= $${whereValues.length + 1}`);
-            whereValues.push(condition.lte);
-          }
-          if (condition.gt !== undefined) {
-            conditionsArray.push(`${column} > $${whereValues.length + 1}`);
-            whereValues.push(condition.gt);
-          }
-          if (condition.gte !== undefined) {
-            conditionsArray.push(`${column} >= $${whereValues.length + 1}`);
-            whereValues.push(condition.gte);
-          }
+      } else if (typeof condition === 'object' && !Array.isArray(condition)) {
+        const isNot = condition.is_not || false;
+        if ('value' in condition && condition.mode) {
+          parseModeComparison(column, condition, conditionsArray);
+        } else if (['lt', 'lte', 'gt', 'gte'].some((op) => op in condition)) {
+          parseRangeOperators(column, condition, conditionsArray);
+        } else {
+          parseSimpleComparison(column, condition.value, isNot, conditionsArray);
         }
       } else {
-        conditionsArray.push(`${column} = $${whereValues.length + 1}`);
-        whereValues.push(condition);
+        parseSimpleComparison(column, condition, false, conditionsArray);
       }
     };
 
-    Object.keys(where).forEach((key) => {
+    for (const [key, condition] of Object.entries(where)) {
       if (key !== 'OR') {
-        const condition = where[key];
         processCondition(key, condition, andConditions, mainTableAlias);
       }
-    });
+    }
 
     if (where.OR) {
-      Object.keys(where.OR).forEach((key) => {
-        const condition = where.OR![key];
+      for (const [key, condition] of Object.entries(where.OR)) {
         processCondition(key, condition, orConditions, mainTableAlias);
-      });
+      }
     }
 
     let clause = '';
@@ -210,7 +243,7 @@ class Database extends EventEmitter {
         clause += `(${andConditions.join(' AND ')})`;
       }
       if (orConditions.length > 0) {
-        if (andConditions.length > 0) clause += ' AND ';
+        if (andConditions.length > 0) clause += ' OR ';
         clause += `(${orConditions.join(' OR ')})`;
       }
     }
@@ -299,14 +332,19 @@ class Database extends EventEmitter {
     dataDict: IDataDict;
     where?: WhereClause;
   }): Promise<void> {
-    const columns = Object.keys(dataDict).filter((col) => dataDict[col] !== undefined);
-    const values = columns.map((col) => dataDict[col]);
+    const columns = Object.keys(dataDict);
+    const values = columns.map((col) =>
+      dataDict[col] === undefined ? null : dataDict[col],
+    );
 
-    const setClause = columns.map((col, index) => `${col} = $${index + 1}`).join(', ');
+    const setClause = columns
+      .map((col, index) => `"${col}" = $${index + 1}`)
+      .join(', ');
 
-    const { clause: whereClause, values: whereValues } = this.buildWhereClause(where, [
-      ...values,
-    ]);
+    const { clause: whereClause, values: whereValues } = this.buildWhereClause(
+      where,
+      values,
+    );
 
     const query = `UPDATE ${table} SET ${setClause}${whereClause};`;
 

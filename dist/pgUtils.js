@@ -114,74 +114,87 @@ var Database = class extends import_node_events.EventEmitter {
     const andConditions = [];
     const orConditions = [];
     const whereValues = values ? [...values] : [];
+    const formatCondition = (expression, isNot) => isNot ? `NOT (${expression})` : expression;
+    const parseSimpleComparison = (column, value, isNot, conditionsArray) => {
+      if (value === null) {
+        conditionsArray.push(formatCondition(`${column} IS NULL`, isNot));
+      } else if (Array.isArray(value)) {
+        const placeholders = value.map((_, i) => `$${whereValues.length + i + 1}`).join(", ");
+        conditionsArray.push(formatCondition(`${column} IN (${placeholders})`, isNot));
+        whereValues.push(...value);
+      } else {
+        conditionsArray.push(
+          formatCondition(`${column} = $${whereValues.length + 1}`, isNot)
+        );
+        whereValues.push(value);
+      }
+    };
+    const parseModeComparison = (column, condition, conditionsArray) => {
+      const { mode, value, is_not: isNot = false } = condition;
+      if (mode === "ilike") {
+        conditionsArray.push(
+          formatCondition(`${column} ILIKE $${whereValues.length + 1}`, isNot)
+        );
+        whereValues.push(`%${value}%`);
+      } else if (mode === "like") {
+        conditionsArray.push(
+          formatCondition(`${column} LIKE $${whereValues.length + 1}`, isNot)
+        );
+        whereValues.push(`%${value}%`);
+      } else if (mode === "date") {
+        conditionsArray.push(
+          formatCondition(`DATE(${column}) = $${whereValues.length + 1}`, isNot)
+        );
+        whereValues.push(value);
+      } else {
+        parseSimpleComparison(column, value, isNot, conditionsArray);
+      }
+    };
+    const parseRangeOperators = (column, condition, conditionsArray) => {
+      const operators = {
+        lt: "<",
+        lte: "<=",
+        gt: ">",
+        gte: ">="
+      };
+      for (const [opKey, sqlOp] of Object.entries(operators)) {
+        if (condition[opKey] !== void 0) {
+          const condValue = condition[opKey];
+          const isNot = typeof condValue === "object" && "is_not" in condValue ? condValue.is_not : false;
+          const value = typeof condValue === "object" && "value" in condValue ? condValue.value : condValue;
+          conditionsArray.push(
+            formatCondition(`${column} ${sqlOp} $${whereValues.length + 1}`, isNot)
+          );
+          whereValues.push(value);
+        }
+      }
+    };
     const processCondition = (key, condition, conditionsArray, alias) => {
       const column = alias && !key.includes(".") ? `${alias}.${key}` : key;
       if (condition === null || condition === void 0) {
         conditionsArray.push(`${column} IS NULL`);
-      } else if (Array.isArray(condition)) {
-        const placeholders = condition.map((_, i) => `$${whereValues.length + i + 1}`).join(", ");
-        conditionsArray.push(`${column} IN (${placeholders})`);
-        whereValues.push(...condition);
-      } else if (typeof condition === "object") {
-        if ("value" in condition && "mode" in condition) {
-          if (condition.mode === "not") {
-            if (condition.value === null) {
-              conditionsArray.push(`${column} IS NOT NULL`);
-            } else if (Array.isArray(condition.value)) {
-              const placeholders = condition.value.map((_, i) => `$${whereValues.length + i + 1}`).join(", ");
-              conditionsArray.push(`${column} NOT IN (${placeholders})`);
-              whereValues.push(...condition.value);
-            } else {
-              conditionsArray.push(`${column} != $${whereValues.length + 1}`);
-              whereValues.push(condition.value);
-            }
-          } else if (condition.mode === "ilike") {
-            conditionsArray.push(`${column} ILIKE $${whereValues.length + 1}`);
-            whereValues.push(`%${condition.value}%`);
-          } else if (condition.mode === "like") {
-            conditionsArray.push(`${column} LIKE $${whereValues.length + 1}`);
-            whereValues.push(`%${condition.value}%`);
-          } else if (condition.mode === "date") {
-            conditionsArray.push(`DATE(${column}) = $${whereValues.length + 1}`);
-            whereValues.push(`%${condition.value}%`);
-          } else {
-            conditionsArray.push(`${column} = $${whereValues.length + 1}`);
-            whereValues.push(condition.value);
-          }
-        } else if ("lt" in condition || "lte" in condition || "gt" in condition || "gte" in condition) {
-          if (condition.lt !== void 0) {
-            conditionsArray.push(`${column} < $${whereValues.length + 1}`);
-            whereValues.push(condition.lt);
-          }
-          if (condition.lte !== void 0) {
-            conditionsArray.push(`${column} <= $${whereValues.length + 1}`);
-            whereValues.push(condition.lte);
-          }
-          if (condition.gt !== void 0) {
-            conditionsArray.push(`${column} > $${whereValues.length + 1}`);
-            whereValues.push(condition.gt);
-          }
-          if (condition.gte !== void 0) {
-            conditionsArray.push(`${column} >= $${whereValues.length + 1}`);
-            whereValues.push(condition.gte);
-          }
+      } else if (typeof condition === "object" && !Array.isArray(condition)) {
+        const isNot = condition.is_not || false;
+        if ("value" in condition && condition.mode) {
+          parseModeComparison(column, condition, conditionsArray);
+        } else if (["lt", "lte", "gt", "gte"].some((op) => op in condition)) {
+          parseRangeOperators(column, condition, conditionsArray);
+        } else {
+          parseSimpleComparison(column, condition.value, isNot, conditionsArray);
         }
       } else {
-        conditionsArray.push(`${column} = $${whereValues.length + 1}`);
-        whereValues.push(condition);
+        parseSimpleComparison(column, condition, false, conditionsArray);
       }
     };
-    Object.keys(where).forEach((key) => {
+    for (const [key, condition] of Object.entries(where)) {
       if (key !== "OR") {
-        const condition = where[key];
         processCondition(key, condition, andConditions, mainTableAlias);
       }
-    });
+    }
     if (where.OR) {
-      Object.keys(where.OR).forEach((key) => {
-        const condition = where.OR[key];
+      for (const [key, condition] of Object.entries(where.OR)) {
         processCondition(key, condition, orConditions, mainTableAlias);
-      });
+      }
     }
     let clause = "";
     if (andConditions.length > 0 || orConditions.length > 0) {
@@ -190,7 +203,7 @@ var Database = class extends import_node_events.EventEmitter {
         clause += `(${andConditions.join(" AND ")})`;
       }
       if (orConditions.length > 0) {
-        if (andConditions.length > 0) clause += " AND ";
+        if (andConditions.length > 0) clause += " OR ";
         clause += `(${orConditions.join(" OR ")})`;
       }
     }
@@ -258,12 +271,15 @@ var Database = class extends import_node_events.EventEmitter {
     dataDict,
     where
   }) {
-    const columns = Object.keys(dataDict).filter((col) => dataDict[col] !== void 0);
-    const values = columns.map((col) => dataDict[col]);
-    const setClause = columns.map((col, index) => `${col} = $${index + 1}`).join(", ");
-    const { clause: whereClause, values: whereValues } = this.buildWhereClause(where, [
-      ...values
-    ]);
+    const columns = Object.keys(dataDict);
+    const values = columns.map(
+      (col) => dataDict[col] === void 0 ? null : dataDict[col]
+    );
+    const setClause = columns.map((col, index) => `"${col}" = $${index + 1}`).join(", ");
+    const { clause: whereClause, values: whereValues } = this.buildWhereClause(
+      where,
+      values
+    );
     const query = `UPDATE ${table} SET ${setClause}${whereClause};`;
     await this.pool.query(query, whereValues);
   }
@@ -343,7 +359,6 @@ var Database = class extends import_node_events.EventEmitter {
             }
           });
           const joinColumns = (await Promise.all(promisesColumns)).flat();
-          console.log(joinColumns);
           selectedFields.push(
             ...joinColumns.map(
               (column) => `${joinAlias}.${column.column_name} AS ${joinAlias}_${column.column_name}`

@@ -7,18 +7,18 @@ interface IDataDict {
 }
 type ClientType = InstanceType<typeof Client>;
 type PoolType = InstanceType<typeof Pool>;
-type WhereCondition = any | {
+type WhereConditionValue = {
     value: any;
-    mode: 'not';
-} | {
-    value: any;
-    mode: 'ilike';
-} | {
-    lt?: any;
-    lte?: any;
-    gt?: any;
-    gte?: any;
+    mode?: 'not' | 'ilike' | 'like' | 'date';
+    is_not?: boolean;
 };
+type WhereConditionRange = {
+    lt?: any | WhereConditionValue;
+    lte?: any | WhereConditionValue;
+    gt?: any | WhereConditionValue;
+    gte?: any | WhereConditionValue;
+};
+type WhereCondition = any | WhereConditionValue | WhereConditionRange;
 type WhereClause = {
     [key: string]: WhereCondition;
 } & {
@@ -49,4 +49,4 @@ type SearchParams = {
     groupBy?: string[];
 };
 
-export type { ClientType, IDataDict, JoinParams, PoolType, SearchParams, SelectFields, WhereClause, WhereCondition };
+export type { ClientType, IDataDict, JoinParams, PoolType, SearchParams, SelectFields, WhereClause, WhereCondition, WhereConditionRange, WhereConditionValue };

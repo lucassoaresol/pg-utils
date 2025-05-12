@@ -9,11 +9,20 @@ export interface IDataDict {
 export type ClientType = InstanceType<typeof Client>;
 export type PoolType = InstanceType<typeof Pool>;
 
-export type WhereCondition =
-  | any
-  | { value: any; mode: 'not' }
-  | { value: any; mode: 'ilike' }
-  | { lt?: any; lte?: any; gt?: any; gte?: any };
+export type WhereConditionValue = {
+  value: any;
+  mode?: 'not' | 'ilike' | 'like' | 'date';
+  is_not?: boolean;
+};
+
+export type WhereConditionRange = {
+  lt?: any | WhereConditionValue;
+  lte?: any | WhereConditionValue;
+  gt?: any | WhereConditionValue;
+  gte?: any | WhereConditionValue;
+};
+
+export type WhereCondition = any | WhereConditionValue | WhereConditionRange;
 
 export type WhereClause = {
   [key: string]: WhereCondition;
