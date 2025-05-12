@@ -394,11 +394,12 @@ class Database extends EventEmitter {
           } else {
             if (!key.includes('.')) {
               matchSelect.push(`${mainTableAlias}.${key}`);
-            }
-            const slSplit = key.split('.');
-            const slAlias = slSplit[0];
-            if (slAlias !== mainTableAlias) {
-              matchSelect.push(`${key} AS ${slAlias}_${slSplit.at(-1)}`);
+            } else {
+              const slSplit = key.split('.');
+              const slAlias = slSplit[0];
+              if (slAlias !== mainTableAlias) {
+                matchSelect.push(`${key} AS ${slAlias}_${slSplit.at(-1)}`);
+              }
             }
           }
         });
