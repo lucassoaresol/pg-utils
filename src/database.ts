@@ -363,6 +363,54 @@ class Database extends EventEmitter {
     await this.pool.query(query, flattenedValues);
   }
 
+  public async upsertManyIntoTable({
+    table,
+    dataList,
+  }: {
+    table: string;
+    dataList: IDataDict[];
+  }): Promise<void> {
+    if (!dataList || dataList.length === 0) return;
+
+    const columns = Object.keys(dataList[0]);
+
+    const rows = dataList.map((record) =>
+      columns.map((col) => {
+        const val = (record as any)[col];
+        if (
+          val &&
+          typeof val === 'object' &&
+          !Buffer.isBuffer(val) &&
+          !(val instanceof Date)
+        ) {
+          return JSON.stringify(val);
+        }
+        return val;
+      }),
+    );
+
+    let paramIndex = 1;
+    const valuePlaceholders = rows
+      .map((row) => `(${row.map(() => `$${paramIndex++}`).join(', ')})`)
+      .join(', ');
+
+    const flattenedValues = rows.flat();
+
+    const setClause = columns
+      .filter((c) => c !== 'id')
+      .map((c) => `${c} = EXCLUDED.${c}`)
+      .join(', ');
+
+    const query = `
+    INSERT INTO ${table} (${columns.join(', ')})
+    VALUES ${valuePlaceholders}
+    ON CONFLICT (id) DO UPDATE SET
+      ${setClause};
+  `;
+
+    await this.pool.query(query, flattenedValues);
+  }
+
   public async updateIntoTable({
     table,
     dataDict,
