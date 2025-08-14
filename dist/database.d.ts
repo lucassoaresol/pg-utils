@@ -24,6 +24,10 @@ declare class Database extends EventEmitter {
         dataDict: IDataDict;
         select?: SelectFields;
     }): Promise<T | void>;
+    insertManyIntoTable({ table, dataList, }: {
+        table: string;
+        dataList: IDataDict[];
+    }): Promise<void>;
     updateIntoTable({ table, dataDict, where, }: {
         table: string;
         dataDict: IDataDict;

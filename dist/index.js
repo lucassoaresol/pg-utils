@@ -272,6 +272,30 @@ var Database = class extends import_node_events.EventEmitter {
       return mappedResult;
     }
   }
+  async insertManyIntoTable({
+    table,
+    dataList
+  }) {
+    if (!dataList || dataList.length === 0) return;
+    const columns = Object.keys(dataList[0]);
+    const rows = dataList.map(
+      (record) => columns.map((col) => {
+        const val = record[col];
+        if (val && typeof val === "object" && !Buffer.isBuffer(val) && !(val instanceof Date)) {
+          return JSON.stringify(val);
+        }
+        return val;
+      })
+    );
+    let paramIndex = 1;
+    const valuePlaceholders = rows.map((row) => `(${row.map(() => `$${paramIndex++}`).join(", ")})`).join(", ");
+    const flattenedValues = rows.flat();
+    const query = `
+    INSERT INTO ${table} (${columns.join(", ")})
+    VALUES ${valuePlaceholders};
+  `;
+    await this.pool.query(query, flattenedValues);
+  }
   async updateIntoTable({
     table,
     dataDict,

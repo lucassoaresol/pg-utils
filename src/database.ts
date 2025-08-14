@@ -9,7 +9,6 @@ import {
   SearchParams,
   SelectFields,
   WhereClause,
-  WhereCondition,
 } from './IDatabase';
 
 const { Pool, Client } = pkg;
@@ -321,6 +320,47 @@ class Database extends EventEmitter {
       const mappedResult = this.mapNullToUndefined(result.rows[0]);
       return mappedResult as T;
     }
+  }
+
+  public async insertManyIntoTable({
+    table,
+    dataList,
+  }: {
+    table: string;
+    dataList: IDataDict[];
+  }): Promise<void> {
+    if (!dataList || dataList.length === 0) return;
+
+    const columns = Object.keys(dataList[0]);
+
+    const rows = dataList.map((record) =>
+      columns.map((col) => {
+        const val = (record as any)[col];
+        if (
+          val &&
+          typeof val === 'object' &&
+          !Buffer.isBuffer(val) &&
+          !(val instanceof Date)
+        ) {
+          return JSON.stringify(val);
+        }
+        return val;
+      }),
+    );
+
+    let paramIndex = 1;
+    const valuePlaceholders = rows
+      .map((row) => `(${row.map(() => `$${paramIndex++}`).join(', ')})`)
+      .join(', ');
+
+    const flattenedValues = rows.flat();
+
+    const query = `
+    INSERT INTO ${table} (${columns.join(', ')})
+    VALUES ${valuePlaceholders};
+  `;
+
+    await this.pool.query(query, flattenedValues);
   }
 
   public async updateIntoTable({
