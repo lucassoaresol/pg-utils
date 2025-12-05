@@ -28,13 +28,13 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
 // src/index.ts
-var src_exports = {};
-__export(src_exports, {
+var index_exports = {};
+__export(index_exports, {
   ClientsManager: () => clientsManager_default,
   Database: () => database_default,
   PgUtils: () => pgUtils_default
 });
-module.exports = __toCommonJS(src_exports);
+module.exports = __toCommonJS(index_exports);
 
 // src/clientsManager.ts
 var import_promises2 = require("fs/promises");
@@ -209,7 +209,7 @@ var Database = class extends import_node_events.EventEmitter {
         clause += `(${andConditions.join(" AND ")})`;
       }
       if (orConditions.length > 0) {
-        if (andConditions.length > 0) clause += " OR ";
+        if (andConditions.length > 0) clause += " AND ";
         clause += `(${orConditions.join(" OR ")})`;
       }
     }

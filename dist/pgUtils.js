@@ -203,7 +203,7 @@ var Database = class extends import_node_events.EventEmitter {
         clause += `(${andConditions.join(" AND ")})`;
       }
       if (orConditions.length > 0) {
-        if (andConditions.length > 0) clause += " OR ";
+        if (andConditions.length > 0) clause += " AND ";
         clause += `(${orConditions.join(" OR ")})`;
       }
     }
