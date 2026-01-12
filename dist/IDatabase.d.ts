@@ -9,7 +9,7 @@ type ClientType = InstanceType<typeof Client>;
 type PoolType = InstanceType<typeof Pool>;
 type WhereConditionValue = {
     value: any;
-    mode?: 'not' | 'ilike' | 'like' | 'date';
+    mode?: 'not' | 'ilike' | 'like' | 'date' | 'json';
     is_not?: boolean;
 };
 type WhereConditionRange = {

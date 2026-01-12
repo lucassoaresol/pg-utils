@@ -162,6 +162,11 @@ class Database extends EventEmitter {
           formatCondition(`DATE(${column}) = $${whereValues.length + 1}`, isNot),
         );
         whereValues.push(value);
+      } else if (mode === 'json') {
+        conditionsArray.push(
+          formatCondition(`${column} ? $${whereValues.length + 1}`, isNot),
+        );
+        whereValues.push(value);
       } else {
         parseSimpleComparison(column, value, isNot, conditionsArray);
       }

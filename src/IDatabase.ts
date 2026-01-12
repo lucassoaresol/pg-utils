@@ -11,7 +11,7 @@ export type PoolType = InstanceType<typeof Pool>;
 
 export type WhereConditionValue = {
   value: any;
-  mode?: 'not' | 'ilike' | 'like' | 'date';
+  mode?: 'not' | 'ilike' | 'like' | 'date' | 'json';
   is_not?: boolean;
 };
 
